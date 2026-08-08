@@ -3,5 +3,7 @@ __pycache__/
 *.pyo
 *.pyd
 .DS_Store
-*.html
-*.json
+/*.html
+/*.json
+*.local.json
+*.local.html
