@@ -53,9 +53,11 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
 单只股票「个股深度」模式（全面公司分析，非组合卡片）
 --------------------------------------------------------------------------------
 当 input.json 含 "single" 字段时，渲染器走 report_single.html，输出一家公司的
-全面深度分析（基本面为主、技术面辅助）：公司画像 / 定性(5块) / 财务质量体检 /
-资本回报与现金创造力(李录核心) / 股东回报 / 估值(含历史分位与价位) / 安全边际 /
-技术面(辅助) / 双视角结论。
+    全面深度分析（基本面为主、技术面辅助）：公司画像 / 定性(5块,含量化证据) / 业务结构 /
+近N年核心财务数据(真实报表) / 财务质量体检 / 资本回报与现金创造力(李录核心) /
+股东回报 / 估值(含历史分位与价位) / 安全边际 / 技术面(辅助·含具体读数) / 双视角结论。
+
+设计原则：所有定性判断必须配量化证据；财务必须给真实多年数字，不得只写"达标/观察"。
 
 {
   "scope":"腾讯控股", "kind":"个股深度", "date":"2026-08-08",
@@ -70,11 +72,42 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
       "cls":"进攻",                       # 守拙君分类
       "liulu":{"业务质量":5,"管理层":5,"长坡厚雪":5,"价格":3,"能力圈":5,"集中耐心":5}  # 李录六维 1-5
     },
-    "qualitative":{                       # 五块定性（可加标签 chips）
-      "business":"商业模式：…", "moat":"护城河：…", "moat_type":["品牌","网络效应"],
-      "competition":"竞争格局：…", "mgmt":"管理层：…",
-      "mgmt_tags":["专注主业","资本配置理性","诚信透明"], "demand":"长期需求：…"
+    "qualitative":{                       # 五块定性 + 量化证据
+      "business":"商业模式：微信+游戏+广告+金融科技+云，平台型高转换成本",
+      "moat":"护城河：社交关系链网络效应 + 游戏IP壁垒 + 支付牌照",
+      "moat_type":["网络效应","品牌","转换成本","牌照"],
+      "moat_data":[                       # 护城河量化证据（必须给数字）
+        {"k":"微信月活 MAU","v":"13.7亿"},
+        {"k":"游戏市场份额(国内)","v":"~45%"},
+        {"k":"微信支付笔数市占","v":"~40%"}
+      ],
+      "competition":"竞争格局：社交绝对寡头；游戏与网易双寡头；广告面对字节竞争",
+      "comp_data":[                       # 竞争格局量化证据
+        {"k":"国内游戏份额-腾讯","v":"~45%"},
+        {"k":"国内游戏份额-网易","v":"~18%"},
+        {"k":"社交份额","v":">90% 寡头"}
+      ],
+      "mgmt":"管理层：马化腾+刘炽平，专注主业、资本配置理性、连续大额定向回购注销",
+      "mgmt_tags":["专注主业","资本配置理性","诚信透明"],
+      "demand":"长期需求：社交/娱乐/数字化营销5-10年后仍在，AI赋能广告与游戏生产"
     },
+    "segments":[                          # 业务结构（收入构成，必须给占比/金额）
+      {"seg":"游戏","pct":"30%","rev":"1960亿"},
+      {"seg":"社交网络","pct":"20%","rev":"1300亿"},
+      {"seg":"广告","pct":"18%","rev":"1170亿"},
+      {"seg":"金融科技及企业服务","pct":"32%","rev":"2080亿"}
+    ],
+    "fin_years":[                         # 近N年核心财务数据（真实报表口径，最新在前）
+      {"yr":"2025","rev":"7240亿","rev_yoy":"+9%","np":"1940亿","np_yoy":"+12%",
+       "ocf":"2500亿","fcf":"1900亿","gm":"52%","nm":"27%","roe":"24%","roic":"20%",
+       "note":"单位：人民币；港股财年与自然年一致"},
+      {"yr":"2024","rev":"6610亿","rev_yoy":"+8%","np":"1730亿","np_yoy":"+10%",
+       "ocf":"2300亿","fcf":"1750亿","gm":"51%","nm":"26%","roe":"23%","roic":"19%"},
+      {"yr":"2023","rev":"6100亿","rev_yoy":"-1%","np":"1570亿","np_yoy":"-7%",
+       "ocf":"2150亿","fcf":"1600亿","gm":"50%","nm":"25%","roe":"22%","roic":"18%"},
+      {"yr":"2022","rev":"6160亿","rev_yoy":"+1%","np":"1690亿","np_yoy":"-7%",
+       "ocf":"2000亿","fcf":"1500亿","gm":"50%","nm":"25%","roe":"22%","roic":"18%"}
+    ],
     "financials":[                        # 财务体检表（门槛指标，可扩展任意行）
       {"k":"ROIC(近5年)","v":">20%","std":"高于WACC","ok":"达标"},
       {"k":"ROE(近5年)","v":">22%","std":"连续5年>15%","ok":"达标"},
@@ -114,7 +147,15 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
       {"t":"股价再跌30%睡得着","ok":true}
     ],
     "tech":{ "state":"右侧强趋势","pos20":0.85,"risk_level":"LOW","risk_score":12,
-             "ma5":510,"ma20":488,"ma55":460,"sig":[["缩量回调","BUY","RIGHT"]],
+             "ma5":510,"ma20":488,"ma55":460,
+             "vol_ratio":0.72,            # 量比（具体读数）
+             "drawdown":6.5,              # 距52w高点回撤 %（正数=低于高点）
+             "price_vs_ma20":6.6,         # 现价 vs MA20 （%）
+             "sig":[["缩量回调","BUY","RIGHT"]],
+             "signal_detail":[            # 信号具体读数（名称+具体量化描写）
+               {"name":"缩量回调","side":"RIGHT","reading":"量比0.72，连续3日缩量，价回踩MA20未破"},
+               {"name":"缩量滞涨","side":"LEFT","reading":"量比0.55，价在高位横盘5日"}
+             ],
              "advice":["趋势内回调可低吸，SELL信号反指"] },
     "verdict":{                           # 双视角交叉结论
       "action":"HOLD","target":"仓位上限25%，首次建仓30-50%",
@@ -447,6 +488,81 @@ QUAL_LABELS = [("business", "商业模式"), ("moat", "护城河"), ("competitio
 QUAL_CHIPS = {"moat": "moat_type", "mgmt": "mgmt_tags"}
 
 
+def build_evid(items):
+    """量化证据列表（护城河/竞争格局的具体数字）。"""
+    if not items:
+        return ""
+    lis = []
+    for it in items:
+        if isinstance(it, dict):
+            k = esc(it.get("k") or it.get("name") or "")
+            v = esc(it.get("v") or it.get("val") or "")
+        else:
+            k, v = "", esc(it)
+        if not (k or v):
+            continue
+        lis.append(f'<li><span class="ek">{k}</span><span class="ev">{v}</span></li>')
+    return f'<ul class="evid">{"".join(lis)}</ul>' if lis else ""
+
+
+def build_segments(segs):
+    """业务结构：分部占比 + 收入。"""
+    if not segs:
+        return '<div class="qb" style="color:var(--mut)">（未提供业务分部数据）</div>'
+    rows = []
+    for sg in segs:
+        name = esc(sg.get("seg", "—"))
+        pct = sg.get("pct")
+        try:
+            p = float(pct)
+        except (TypeError, ValueError):
+            p = None
+        bar = (f'<div class="sbar"><i style="width:{max(0.0, min(100.0, p))}%"></i></div>'
+               if p is not None else '<div class="sbar"></div>')
+        rev = esc(sg.get("rev", "—"))
+        pct_s = esc(pct) if pct is not None else "—"
+        rows.append(f'<div class="seg"><div class="sn">{name}</div>{bar}'
+                    f'<div class="sp"><b>{pct_s}</b> · {rev}</div></div>')
+    return f'<div class="segs">{"".join(rows)}</div>'
+
+
+FIN_METRICS = [
+    ("rev", "营收", False), ("rev_yoy", "营收同比", True),
+    ("np", "归母净利", False), ("np_yoy", "净利同比", True),
+    ("ocf", "经营现金流", False), ("fcf", "自由现金流", False),
+    ("gm", "毛利率", False), ("nm", "净利率", False),
+    ("roe", "ROE", False), ("roic", "ROIC", False),
+]
+
+
+def build_fin_years(rows):
+    """近 N 年核心财务数据表（指标 × 年份），真实报表口径。"""
+    if not rows:
+        return '<div class="qb" style="color:var(--mut)">（未提供多年财务数据）</div>'
+    years = [esc(r.get("yr", "?")) for r in rows]
+    head = '<tr><th>指标</th>' + "".join(f'<th>{y}</th>' for y in years) + '</tr>'
+    body = []
+    for key, lab, is_yoy in FIN_METRICS:
+        tds = []
+        for r in rows:
+            val = r.get(key)
+            if val is None:
+                tds.append('<td class="neu">—</td>')
+                continue
+            cell_cls = "neu"
+            if is_yoy:
+                s = str(val).strip()
+                if s.startswith("+"):
+                    cell_cls = "up"
+                elif s.startswith("-"):
+                    cell_cls = "dn"
+            tds.append(f'<td class="{cell_cls}">{esc(val)}</td>')
+        body.append(f'<tr><td>{lab}</td>{"".join(tds)}</td>')
+    note = esc(rows[0].get("note", "")) if rows else ""
+    cap = f'<caption>{note}</caption>' if note else ""
+    return (f'<table class="fintab"><thead>{head}</thead><tbody>{"".join(body)}</tbody>{cap}</table>')
+
+
 def build_qual(q):
     cells = []
     for key, lab in QUAL_LABELS:
@@ -459,7 +575,13 @@ def build_qual(q):
             vals = q.get(chip_key) or []
             if vals:
                 chips = '<div class="chips">' + "".join(f'<span class="chip">{esc(x)}</span>' for x in vals) + '</div>'
-        cells.append(f'<div class="qcell"><div class="qt">{lab}</div><div class="qb">{esc(txt)}</div>{chips}</div>')
+        evid = ""
+        if key == "moat":
+            evid = build_evid(q.get("moat_data"))
+        elif key == "competition":
+            evid = build_evid(q.get("comp_data"))
+        cells.append(f'<div class="qcell"><div class="qt">{lab}</div>'
+                     f'<div class="qb">{esc(txt)}</div>{chips}{evid}</div>')
     return "".join(cells) or '<div class="qb" style="color:var(--mut)">（未提供定性内容）</div>'
 
 
@@ -566,6 +688,53 @@ def build_tech_single(tech, pos52):
     sig = tech.get("sig") or tech.get("signals") or []
     sigtxt = "、".join(f"{esc(a)}·{esc(b)}/{esc(c)}" for a, b, c in (_norm_sig(s) for s in sig)) or "无触发信号"
     adv = "；".join(esc(a) for a in tech.get("advice") or []) or "无特别建议"
+
+    vol_ratio = tech.get("vol_ratio")
+    drawdown = tech.get("drawdown")
+    pma20 = tech.get("price_vs_ma20")
+
+    def row(k, v):
+        return f'<div class="tr"><span>{k}</span><b>{esc(v)}</b></div>'
+
+    extra = ""
+    if vol_ratio is not None:
+        try:
+            vr = float(vol_ratio)
+            vrc = "#56d364" if vr < 0.8 else ("#ff7b72" if vr > 1.5 else "#e6edf3")
+            extra += f'<div class="tr"><span>量比</span><b style="color:{vrc}">{vr:.2f}</b></div>'
+        except (TypeError, ValueError):
+            pass
+    if drawdown is not None:
+        try:
+            dd = float(drawdown)
+            ddc = "#56d364" if dd <= 0 else ("#eab308" if dd < 20 else "#ff7b72")
+            extra += f'<div class="tr"><span>距 52w 高点回撤</span><b style="color:{ddc}">-{dd:.1f}%</b></div>'
+        except (TypeError, ValueError):
+            pass
+    if pma20 is not None:
+        try:
+            pm = float(pma20)
+            pmc = "#ff7b72" if pm > 0 else ("#56d364" if pm < 0 else "#e6edf3")
+            extra += f'<div class="tr"><span>现价 vs MA20</span><b style="color:{pmc}">{pm:+.1f}%</b></div>'
+        except (TypeError, ValueError):
+            pass
+
+    # 信号具体读数
+    detail = tech.get("signal_detail") or []
+    sd_html = ""
+    if detail:
+        sds = []
+        for d in detail:
+            if isinstance(d, dict):
+                sn = esc(d.get("name", "?"))
+                sr = esc(d.get("reading", ""))
+                sside = esc(d.get("side", ""))
+            else:
+                sn, sr, sside = "?", esc(d), ""
+            sds.append(f'<div class="sd"><span class="sn">{sn}</span>'
+                       f'<span class="sr">{sr}{(" · " + sside) if sside else ""}</span></div>')
+        sd_html = f'<div class="sig-detail">{"".join(sds)}</div>'
+
     p52bar = sbar(pos52, col52(pos52), f"52w 分位 {pos52:.0f}%" if pos52 is not None else "52w 分位 —") \
         if pos52 is not None else ""
     tbar = sbar(pos20, col20, f"20日位置 {pos20:.0f}%" if pos20 is not None else "20日位置 —")
@@ -573,8 +742,10 @@ def build_tech_single(tech, pos52):
             f'<div class="tr"><span>趋势状态</span><b><span class="badge {STB.get(state, "b-drop")}">{esc(state)}</span></b></div>'
             f'{p52bar}{tbar}'
             f'<div class="tr"><span>均线</span><b>MA5 {esc(tech.get("ma5", "—"))} / MA20 {esc(tech.get("ma20", "—"))} / MA55 {esc(tech.get("ma55", "—"))}</b></div>'
+            f'{extra}'
             f'<div class="tr"><span>风险分</span><b><span class="badge {RSKB.get(tech.get("risk_level", "—"), "b-drop")}">{esc(tech.get("risk_level", "—"))} {esc(tech.get("risk_score", "—"))}</span></b></div>'
-            f'<div class="tr"><span>信号</span><b>{sigtxt}</b></div>'
+            f'<div class="tr"><span>信号（摘要）</span><b>{sigtxt}</b></div>'
+            f'{sd_html}'
             f'<div class="adv">→ {adv}</div>'
             f'<div class="aux-note">技术面仅作买入/加仓的择时辅助，不改变基本面结论；右侧不追高、破位减仓，仅供参考。</div></div>')
 
@@ -627,6 +798,8 @@ def render_single(cfg):
            .replace("{{SUMMARY}}", esc(summary))
            .replace("{{PROFILE}}", build_profile(prof, pos52))
            .replace("{{QUAL}}", build_qual(s.get("qualitative", {})))
+           .replace("{{SEGS}}", build_segments(s.get("segments")))
+           .replace("{{FINYEARS}}", build_fin_years(s.get("fin_years")))
            .replace("{{FIN}}", build_fin(s.get("financials", [])))
            .replace("{{CAPITAL}}", build_capital(s.get("capital")))
            .replace("{{RETURNS}}", build_returns(s.get("returns")))

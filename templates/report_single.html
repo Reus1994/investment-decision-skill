@@ -11,7 +11,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65;padding:28px}
-  .wrap{max-width:1080px;margin:0 auto}
+  .wrap{max-width:1120px;margin:0 auto}
   h1{font-size:25px;margin-bottom:4px}
   .sub{color:var(--mut);font-size:13px;margin-bottom:14px}
   .callout{background:linear-gradient(135deg,#1c2330,#161b22);border:1px solid var(--red);border-left:4px solid var(--red);border-radius:10px;padding:14px 18px;margin:14px 0}
@@ -40,7 +40,7 @@
   .banner .summary{flex:1;min-width:280px;color:#c9d1d9;font-size:14px}
 
   /* 画像网格 */
-  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:6px}
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:10px;margin-top:6px}
   .pcell{background:#11161f;border:1px solid var(--line);border-radius:8px;padding:9px 11px}
   .pcell .k{color:var(--mut);font-size:11px}
   .pcell .v{font-size:15px;font-weight:600;margin-top:2px}
@@ -50,12 +50,36 @@
   .liulu .dim .sc{margin-left:6px;font-weight:700}
 
   /* 定性 5 块 */
-  .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px;margin-top:6px}
+  .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:6px}
   .qcell{background:#11161f;border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:8px;padding:11px 13px}
   .qcell .qt{font-size:13px;font-weight:700;color:#79b8ff;margin-bottom:5px}
   .qcell .qb{font-size:12.5px;color:#c9d1d9}
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
   .chip{background:rgba(59,130,246,.14);color:#79b8ff;font-size:11px;padding:1px 8px;border-radius:12px}
+
+  /* 量化证据列表（护城河/竞争） */
+  .evid{list-style:none;margin-top:9px;border-top:1px dashed var(--line);padding-top:8px}
+  .evid li{display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:3px 0}
+  .evid li .ek{color:var(--mut)}
+  .evid li .ev{font-weight:600;text-align:right}
+
+  /* 业务结构 */
+  .segs{margin-top:4px}
+  .seg{display:grid;grid-template-columns:130px 1fr 90px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .seg .sn{font-weight:600}
+  .seg .sbar{height:14px;background:#0d1117;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  .seg .sbar i{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#79b8ff);border-radius:4px}
+  .seg .sp{text-align:right;color:var(--mut);font-variant-numeric:tabular-nums}
+  .seg .sp b{color:#e6edf3}
+
+  /* 多年财务表（核心具体块） */
+  .fintab{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;font-variant-numeric:tabular-nums}
+  .fintab th,.fintab td{border-bottom:1px solid var(--line);padding:7px 9px;text-align:right;white-space:nowrap}
+  .fintab th{color:var(--mut);font-weight:600;background:var(--card2)}
+  .fintab th:first-child,.fintab td:first-child{text-align:left;color:#c9d1d9;font-weight:600;position:sticky;left:0;background:var(--card)}
+  .fintab tbody tr:hover{background:#1a2030}
+  .fintab .up{color:#ff7b72}.fintab .dn{color:#56d364}.fintab .neu{color:var(--mut)}
+  .fintab caption{caption-side:bottom;color:var(--mut);font-size:11px;text-align:left;padding-top:6px}
 
   /* 财务体检表 */
   table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
@@ -68,7 +92,7 @@
 
   /* 资本回报卡片 */
   .cap{background:#11161f;border:1px solid var(--line);border-radius:8px;padding:12px}
-  .cap .cr{display:grid;grid-template-columns:140px 1fr;gap:4px 12px;font-size:13px;align-items:center}
+  .cap .cr{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:13px;align-items:center}
   .cap .cr .ck{color:var(--mut)}
   .cap .cr .cv{font-weight:500}
   .cap .note{margin-top:9px;font-size:12.5px;color:#c9d1d9;border-top:1px dashed var(--line);padding-top:9px}
@@ -79,6 +103,10 @@
   .valbox .vk{color:var(--mut)}
   .valbox .vv{font-weight:500}
   .valbox .vv.hi{color:#56d364}
+  .retbox{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center}
+  .retbox .rk{color:var(--mut);font-size:11px}
+  .retbox .rv{font-size:16px;font-weight:700;margin-top:2px}
+  .retbox .rv.hi{color:#56d364}
 
   /* 安全边际清单 */
   .safety{list-style:none;margin-top:6px}
@@ -91,10 +119,14 @@
   .tech{background:#0f141c;border:1px solid var(--line);border-left:3px solid var(--mut);border-radius:8px;padding:12px}
   .tech .tr{display:flex;justify-content:space-between;font-size:12.5px;gap:10px;padding:3px 0}
   .tech .tr span{color:var(--mut)}
-  .tech .tr b{font-weight:500;text-align:right}
+  .tech .tr b{font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
   .sbar{position:relative;height:22px;background:#0d1117;border:1px solid var(--line);border-radius:6px;margin:8px 0;overflow:hidden}
   .sbar .sf{position:absolute;left:0;top:0;bottom:0;border-radius:5px;opacity:.85}
   .sbar .lab{position:absolute;left:8px;top:2px;font-size:12px;font-weight:600;color:#e6edf3;text-shadow:0 1px 2px #000}
+  .sig-detail{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+  .sig-detail .sd{font-size:12px;padding:4px 0;display:flex;gap:8px;align-items:baseline}
+  .sig-detail .sd .sn{font-weight:600;min-width:78px}
+  .sig-detail .sd .sr{color:var(--mut);flex:1}
   .adv{font-size:12.5px;color:#79b8ff;margin-top:6px;border-top:1px dashed var(--line);padding-top:6px}
   .aux-note{font-size:11.5px;color:var(--mut);margin-top:6px;font-style:italic}
 
@@ -133,35 +165,44 @@
   <div class="card">{{PROFILE}}</div>
 
   <div class="sec-t fund">二、定性分析（商业模式 / 护城河 / 竞争格局 / 管理层 / 长期需求）</div>
-  <div class="sec-sub">— 生意本质与护城河是第一位的，先看「是不是好生意」，再谈估值</div>
+  <div class="sec-sub">— 先看「是不是好生意」：每个判断都要有量化证据支撑，而非形容词</div>
   <div class="qgrid">{{QUAL}}</div>
 
-  <div class="sec-t fund">三、财务质量体检（守拙君门槛 + 淘汰项）</div>
-  <div class="sec-sub">— 连续 5 年维度，关注趋势与质量，而非单期数字</div>
+  <div class="sec-t fund">三、业务结构与收入构成</div>
+  <div class="sec-sub">— 钱从哪来、各业务赚钱能力如何，是理解商业模式的骨架</div>
+  <div class="card">{{SEGS}}</div>
+
+  <div class="sec-t fund">四、近 N 年核心财务数据（真实报表口径）</div>
+  <div class="sec-sub">— 看趋势与质量：营收/利润是否持续增长、现金流是否跟得上利润、ROIC 是否够高</div>
+  <div class="card" style="padding:6px 14px;overflow-x:auto">{{FINYEARS}}</div>
+
+  <div class="sec-t fund">五、财务质量体检（守拙君门槛 + 淘汰项）</div>
+  <div class="sec-sub">— 基于上方真实数据做的达标判定</div>
   <div class="card" style="padding:6px 14px">{{FIN}}</div>
 
-  <div class="sec-t fund">四、资本回报与现金创造力（李录核心：高 ROIC · 忌资本黑洞）</div>
+  <div class="sec-t fund">六、资本回报与现金创造力（李录核心：高 ROIC · 忌资本黑洞）</div>
   <div class="sec-sub">— 同样的利润，是「真金白银」还是「纸面富贵」，决定生意成色</div>
   <div class="card">{{CAPITAL}}</div>
 
-  <div class="sec-t fund">五、股东回报（分红 / 回购 / 综合收益率）</div>
+  <div class="sec-t fund">七、股东回报（分红 / 回购 / 综合收益率）</div>
   <div class="sec-sub">— 利润最终是否回流股东，是检验管理层「德」的硬指标</div>
   <div class="card">{{RETURNS}}</div>
 
-  <div class="sec-t fund">六、估值分析（按类型 A–E 公式 + 历史分位）</div>
+  <div class="sec-t fund">八、估值分析（按类型 A–E 公式 + 历史分位 + 安全边际价位）</div>
   <div class="sec-sub">— 先分类再估值；好公司也要好价格，算清安全边际价位</div>
   <div class="card">{{VAL}}</div>
 
-  <div class="sec-t fund">七、安全边际检验（买入前逐条核对）</div>
+  <div class="sec-t fund">九、安全边际检验（买入前逐条核对）</div>
   <div class="card">{{SAFETY}}</div>
 
-  <div class="sec-t">八、技术面（辅助参考 · 仅作择时，不构成买卖依据）</div>
+  <div class="sec-t">十、技术面（辅助参考 · 仅作择时，不构成买卖依据）</div>
+  <div class="sec-sub">— 下方均为可验证的量化读数，用于确认买卖点，不改变基本面结论</div>
   <div class="card">{{TECH}}</div>
 
-  <div class="sec-t">九、双视角交叉结论与操作纪律</div>
+  <div class="sec-t">十一、双视角交叉结论与操作纪律</div>
   <div class="verdict">{{VERDICT}}</div>
 
-  <div class="sec-t">十、风险提示</div>
+  <div class="sec-t">十二、风险提示</div>
   <div class="card">
     <ul class="risklist">{{RISKS}}</ul>
   </div>
