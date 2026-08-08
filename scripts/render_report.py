@@ -3,12 +3,23 @@
 双视角体检报告渲染器（暗色 HTML，单文件零依赖输出）
 
 用法:
-    python scripts/render_report.py input.json -o report.html
-    python scripts/render_report.py input.json --tech tech.json -o report.html
+    python scripts/render_report.py input.json --outdir <目录>      # 按命名规范自动命名（推荐）
+    python scripts/render_report.py input.json -o 自定义路径.html    # 手动指定文件名
+    python scripts/render_report.py input.json --tech tech.json --outdir <目录>
+
+文件命名规范（省略 -o 时自动生成）:
+    {范围}_{类型}_{YYYY-MM-DD}.html
+    范围 scope = 分组名/标的名/主题（持仓个股 / 持仓ETF / 关注池 / 半导体主线 / 药明康德）
+    类型 kind  = 组合体检 | 个股深度 | 基本面评估 | 技术扫描 | 信号回测 | 定期跟踪
+                 （默认双视角方法不写进文件名；仅基本面/仅技术面时才在 kind 标明）
+    多只默认 kind=组合体检，单只默认 kind=个股深度；同日重跑自动追加 -v2/-v3
 
 input.json 结构:
 {
-  "title":    "持仓个股双视角体检报告",          # 必填
+  "scope":    "持仓个股",                        # 命名用: 分析范围; 缺省回退 title
+  "kind":     "组合体检",                        # 命名用: 报告类型; 缺省按标的数量推断
+  "date":     "2026-08-08",                     # 命名用: 数据日期; 缺省今天
+  "title":    "持仓个股 · 组合体检报告",          # 必填, 页面大标题
   "subtitle": "分析对象 … | 数据截至 … | 框架 …",  # 可选
   "callout":  "<b>本轮关键变化：</b>…",           # 可选, 允许 HTML, 显示为顶部红框
   "portfolio": ["<b>1. …</b> 段落一", "段落二"],  # 可选, 组合层面结论
@@ -39,9 +50,11 @@ input.json 结构:
 tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 tech 字段…}, … }
 """
 import argparse
+import datetime
 import html
 import json
 import os
+import re
 import sys
 
 TPL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", "report.html")
@@ -284,10 +297,40 @@ def render(cfg, tech_ext):
     return out, rows
 
 
+# ---------------- 文件命名规范 ----------------
+# 统一格式: {范围}_{类型}_{YYYY-MM-DD}.html
+#   范围 scope : 分组名/标的名/主题 —— 持仓个股 / 持仓ETF / 关注池 / 半导体主线 / 药明康德
+#   类型 kind  : 组合体检(多只,基本面+技术面) / 个股深度(单只) / 基本面评估(仅基本面)
+#                / 技术扫描(仅技术面) / 信号回测 / 定期跟踪
+#   默认方法即"双视角"，不写进文件名；只有偏离默认（仅基本面/仅技术面）才在 kind 中标明。
+# 同日重跑自动追加 -v2/-v3，不覆盖旧文件。
+KIND_DEFAULT_MULTI = "组合体检"
+KIND_DEFAULT_SINGLE = "个股深度"
+_BAD = re.compile(r'[\\/:*?"<>|\s]+')
+
+
+def build_filename(cfg, n_items, ext="html"):
+    scope = str(cfg.get("scope") or cfg.get("title") or "标的").strip()
+    kind = str(cfg.get("kind") or (KIND_DEFAULT_SINGLE if n_items == 1 else KIND_DEFAULT_MULTI)).strip()
+    date = str(cfg.get("date") or datetime.date.today().isoformat()).strip()
+    return f"{_BAD.sub('_', scope)}_{_BAD.sub('_', kind)}_{date}.{ext}"
+
+
+def dedupe_path(path):
+    if not os.path.exists(path):
+        return path
+    base, ext = os.path.splitext(path)
+    i = 2
+    while os.path.exists(f"{base}-v{i}{ext}"):
+        i += 1
+    return f"{base}-v{i}{ext}"
+
+
 def main():
     ap = argparse.ArgumentParser(description="渲染双视角体检报告 HTML")
     ap.add_argument("input", help="报告数据 JSON")
-    ap.add_argument("-o", "--output", default="report.html", help="输出 HTML 路径")
+    ap.add_argument("-o", "--output", help="输出 HTML 路径；省略时按命名规范自动生成 {范围}_{类型}_{日期}.html")
+    ap.add_argument("--outdir", default=".", help="自动命名时的输出目录（默认当前目录）")
     ap.add_argument("--tech", help="technical_engine 批量输出 JSON（按 code 索引），可选")
     args = ap.parse_args()
 
@@ -302,8 +345,16 @@ def main():
             tech_ext = json.load(f)
 
     out, rows = render(cfg, tech_ext)
-    with open(args.output, "w", encoding="utf-8") as f:
+
+    if args.output:
+        target = args.output
+    else:
+        target = dedupe_path(os.path.join(args.outdir, build_filename(cfg, len(rows))))
+    d = os.path.dirname(os.path.abspath(target))
+    os.makedirs(d, exist_ok=True)
+    with open(target, "w", encoding="utf-8") as f:
         f.write(out)
+    args.output = target
 
     print(f"written: {args.output} ({os.path.getsize(args.output)} bytes, {len(rows)} items)")
     dist = {}
