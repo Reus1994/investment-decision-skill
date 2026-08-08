@@ -66,6 +66,9 @@ description: 双视角投资决策（基本面 + 技术面）。当用户需要�
 
 多只标的或组合体检时，给出汇总表格：每只的 分类/PE/PB/ROE/PEG/52w分位/估值状态/趋势状态/综合结论/仓位建议，并给出组合层面结论。
 
+### Step 6.5 单只股票 → 个股深度（全面公司分析）
+当用户要求分析**单只**股票（"分析一下 XX 这家公司"、"XX 能不能买"），不要只给组合卡片式的简表，而要按 Step 2–5 对该公司做**全维度拆解**，输出结构：公司画像 → 定性（商业模式/护城河/竞争格局/管理层/长期需求）→ 财务体检 → 估值（按类型 A–E）→ 安全边际清单 → 技术面 → 双视角结论（BUY/SELL/HOLD + 仓位/买点/加仓/卖出触发）→ 风险提示 → 守拙君金句。**文本输出直接套用 Step 6 的【公司分类】…【守拙君金句】十段式**；若要出 HTML，走下面的"个股深度"单只模板。
+
 ### Step 7 输出 HTML 可视化报告（可选，多只/组合时推荐）
 当用户要求"出报告"、"可视化"、"看组合全貌"或"导出 HTML"时，使用 `templates/report.html` + `scripts/render_report.py` 生成暗色主题单文件 HTML：
 1. 准备好 `input.json`（格式见 `render_report.py` 顶部 docstring），填入 `scope/kind/date`（命名用，见下）+ `title/subtitle/items`（每只含 code/name/cls/基本面指标/52w高低或pos52/基本面判定/五步法 blurb/守拙君金句），`tech.json` 可选（由 technical_engine 批量输出并按 code 索引）。
@@ -77,6 +80,8 @@ description: 双视角投资决策（基本面 + 技术面）。当用户需要�
    - 组合层面结论（由输入 `portfolio` 字段控制）
 3. 报告遵循 A 股惯例红涨绿跌、蓝低黄中红高配色，结论徽章化，可直接在浏览器打开查看或截图分享。
 4. 无敏感信息：模板和脚本不嵌入任何个人 token、持仓分组名或绝对路径，input.json 中用户自行决定是否写入真实持仓。
+
+**单只股票（个股深度）专用模板**：当 input.json 含 `single` 字段（见 `render_report.py` 顶部 docstring 的完整 schema），渲染器自动改用 `templates/report_single.html`，输出一家公司的全面深度分析（公司画像 + 李录六维评分 / 定性五块 / 财务体检表 / 估值类型 / 安全边际清单 / 技术面 / 双视角结论）。该模式与组合体检互不影响；命名 `kind` 自动取 `个股深度`。示例：`腾讯控股_个股深度_2026-08-08.html`、`药明康德_个股深度_2026-08-08.html`。
 
 #### 报告文件命名规范（强制，勿自由发挥）
 格式：**`{范围}_{类型}_{YYYY-MM-DD}.html`**（Markdown 版同理换后缀）
@@ -110,4 +115,4 @@ description: 双视角投资决策（基本面 + 技术面）。当用户需要�
 - `scripts/technical_engine.py` — 输入日K数组 JSON → 输出 MA 表/10 信号/风险评分/右侧趋势（端口自 TradingAssistantPy）
 - `scripts/valuation.py` — 输入基本面参数 JSON → 输出 A/B/C/D 型估值、PEG、零增长收益率、区间判断
 - `scripts/backtest.py` — 历史回测器：滚动扫描信号、未来5/10/20日收益、分策略胜率/盈亏比、风险分层、随机基准对比（策略改版后重跑验证）
-- `scripts/render_report.py` — 输入报告数据 JSON → 输出单文件 HTML 可视化报告（调用 `templates/report.html`）
+- `scripts/render_report.py` — 输入报告数据 JSON → 输出单文件 HTML 可视化报告；含 `single` 字段时调用 `templates/report_single.html` 渲染"个股深度"全面公司分析，否则用 `templates/report.html` 渲染组合体检

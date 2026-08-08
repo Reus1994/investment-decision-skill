@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --card2:#1c2330; --line:#30363d;
+    --txt:#e6edf3; --mut:#8b949e; --blue:#3b82f6; --grn:#2ea043; --red:#ef4444; --yel:#eab308; --pur:#a371f7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65;padding:28px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:25px;margin-bottom:4px}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:14px}
+  .callout{background:linear-gradient(135deg,#1c2330,#161b22);border:1px solid var(--red);border-left:4px solid var(--red);border-radius:10px;padding:14px 18px;margin:14px 0}
+  .callout b{color:#ff7b72}
+  .sec-t{font-size:18px;margin:28px 0 12px;border-left:4px solid var(--blue);padding-left:10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap;vertical-align:middle}
+  .b-atk{background:rgba(239,68,68,.15);color:#ff7b72}
+  .b-def{background:rgba(46,160,67,.15);color:#56d364}
+  .b-alt{background:rgba(167,113,247,.15);color:#d2a8ff}
+  .b-drop{background:rgba(139,148,158,.18);color:#aaa}
+  .b-buy{background:rgba(239,68,68,.2);color:#ff9a94;border:1px solid rgba(239,68,68,.35)}
+  .b-watch{background:rgba(234,179,8,.18);color:#e3c14a}
+  .b-wait{background:rgba(59,130,246,.18);color:#79b8ff}
+  .b-no{background:rgba(139,148,158,.2);color:#b0b6bd}
+  .foot{color:var(--mut);font-size:11.5px;margin-top:26px;border-top:1px solid var(--line);padding-top:12px}
+
+  /* 顶部结论横幅 */
+  .banner{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;background:linear-gradient(135deg,#161b22,#1c2330);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .banner .nm{font-size:22px;font-weight:700}
+  .banner .code{color:var(--mut);font-size:12px}
+  .banner .act{flex:0 0 auto;text-align:center;padding:6px 18px;border-radius:10px;border:1px solid var(--line)}
+  .banner .act .big{font-size:24px;font-weight:800}
+  .banner .summary{flex:1;min-width:280px;color:#c9d1d9;font-size:14px}
+
+  /* 画像网格 */
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:6px}
+  .pcell{background:#11161f;border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .pcell .k{color:var(--mut);font-size:11px}
+  .pcell .v{font-size:15px;font-weight:600;margin-top:2px}
+  .liulu{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .liulu .dim{background:#11161f;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px}
+  .liulu .dim b{font-size:13px}
+  .liulu .dim .sc{margin-left:6px;font-weight:700}
+
+  /* 定性 5 块 */
+  .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px;margin-top:6px}
+  .qcell{background:#11161f;border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:8px;padding:11px 13px}
+  .qcell .qt{font-size:13px;font-weight:700;color:#79b8ff;margin-bottom:5px}
+  .qcell .qb{font-size:12.5px;color:#c9d1d9}
+
+  /* 财务体检表 */
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:middle}
+  th{color:var(--mut);font-weight:600;background:var(--card2)}
+  tr:hover{background:#1a2030}
+  .ok-y{color:#56d364;font-weight:600}
+  .ok-n{color:#ff7b72;font-weight:600}
+  .ok-w{color:#e3c14a;font-weight:600}
+
+  /* 估值盒子 */
+  .valbox{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;align-items:center}
+  .valbox .vk{color:var(--mut)}
+  .valbox .vv{font-weight:500}
+
+  /* 安全边际清单 */
+  .safety{list-style:none;margin-top:6px}
+  .safety li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .safety li .mk{flex:0 0 auto;font-weight:800;font-size:15px}
+  .safety li .txt{flex:1}
+  .safety li .nt{color:var(--mut);font-size:12px}
+
+  /* 技术面 */
+  .tech{background:#11161f;border:1px solid var(--line);border-radius:8px;padding:12px}
+  .tech .tr{display:flex;justify-content:space-between;font-size:12.5px;gap:10px;padding:3px 0}
+  .tech .tr span{color:var(--mut)}
+  .tech .tr b{font-weight:500;text-align:right}
+  .sbar{position:relative;height:22px;background:#0d1117;border:1px solid var(--line);border-radius:6px;margin:8px 0;overflow:hidden}
+  .sbar .sf{position:absolute;left:0;top:0;bottom:0;border-radius:5px;opacity:.85}
+  .sbar .lab{position:absolute;left:8px;top:2px;font-size:12px;font-weight:600;color:#e6edf3;text-shadow:0 1px 2px #000}
+  .adv{font-size:12.5px;color:#79b8ff;margin-top:6px;border-top:1px dashed var(--line);padding-top:6px}
+
+  /* 双视角结论 */
+  .verdict{background:linear-gradient(135deg,#161b22,#1c2330);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .verdict .vrow{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font-size:13px;margin-top:6px}
+  .verdict .vrow .vk{color:var(--mut)}
+  .verdict .vrow .vv{font-weight:500}
+
+  /* 风险提示 / 金句 */
+  .risklist{margin:6px 0 0 18px;font-size:13px;color:#c9d1d9}
+  .risklist li{margin:4px 0}
+  .quote{font-size:14px;color:var(--yel);font-style:italic;background:#11161f;border-left:3px solid var(--yel);border-radius:6px;padding:10px 14px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>{{TITLE}}</h1>
+  <div class="sub">{{SUBTITLE}}</div>
+
+  {{CALLOUT}}
+
+  <div class="banner">
+    <div>
+      <div class="nm">{{NAME}} <span class="badge {{CLSB}}">{{CLS}}</span></div>
+      <div class="code">{{CODE}}</div>
+    </div>
+    <div class="act badge {{VC}}">
+      <div class="big">{{ACTION}}</div>
+      <div style="font-size:11px;color:var(--mut)">双视角结论</div>
+    </div>
+    <div class="summary">{{SUMMARY}}</div>
+  </div>
+
+  <div class="sec-t">一、公司画像</div>
+  <div class="card">{{PROFILE}}</div>
+
+  <div class="sec-t">二、定性分析（商业模式 / 护城河 / 竞争格局 / 管理层 / 长期需求）</div>
+  <div class="qgrid">{{QUAL}}</div>
+
+  <div class="sec-t">三、财务体检（守拙君门槛 + 淘汰项）</div>
+  <div class="card" style="padding:6px 14px">{{FIN}}</div>
+
+  <div class="sec-t">四、估值分析（按类型 A–E 公式）</div>
+  <div class="card">{{VAL}}</div>
+
+  <div class="sec-t">五、安全边际检验（买入前逐条核对）</div>
+  <div class="card">{{SAFETY}}</div>
+
+  <div class="sec-t">六、技术面（引擎输出 · 多轮回测校准）</div>
+  <div class="card">{{TECH}}</div>
+
+  <div class="sec-t">七、双视角交叉结论与操作纪律</div>
+  <div class="verdict">{{VERDICT}}</div>
+
+  <div class="sec-t">八、风险提示</div>
+  <div class="card">
+    <ul class="risklist">{{RISKS}}</ul>
+  </div>
+
+  {{QUOTE}}
+
+  <div class="foot">{{FOOTER}}</div>
+</div>
+</body>
+</html>

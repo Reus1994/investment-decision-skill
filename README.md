@@ -29,7 +29,8 @@ WorkBuddy skill：双视角投资决策（基本面 + 技术面）。
 │   ├── backtest.py               # 历史信号回测器
 │   └── render_report.py          # JSON → HTML 可视化报告
 └── templates/
-    └── report.html               # 报告模板
+    ├── report.html               # 组合体检模板（多只/组合）
+    └── report_single.html        # 个股深度模板（单只全面公司分析）
 ```
 
 ## 快速开始
@@ -109,6 +110,38 @@ python scripts/render_report.py input.json -o report.html
 ```
 
 打开 `report.html` 即可查看图表、矩阵与逐只卡片。
+
+### 4. 单只股票「个股深度」报告
+
+分析单只公司时，input.json 用 `single` 字段给出全维度内容（公司画像 / 定性五块 / 财务体检 / 估值 / 安全边际 / 技术面 / 双视角结论），渲染器自动改用 `report_single.html`：
+
+```bash
+cat > single.json <<'EOF'
+{
+  "scope": "腾讯控股", "kind": "个股深度", "date": "2026-08-08",
+  "title": "腾讯控股 · 个股深度分析",
+  "single": {
+    "summary": "一句话定位…",
+    "profile": {"industry":"互联网","mktcap":"3.2万亿 HKD","px":520.5,"cur":"HKD",
+                "pe":"22","pb":"4.2","roe":"23%","g":"12%","peg":"1.8",
+                "hi52":620,"lo52":360,"cls":"进攻",
+                "liulu":{"业务质量":5,"管理层":5,"长坡厚雪":5,"价格":3,"能力圈":5,"集中耐心":5}},
+    "qualitative": {"business":"…","moat":"…","competition":"…","mgmt":"…","demand":"…"},
+    "financials": [{"k":"ROE","v":">22%","std":"连续5年>15%","ok":"达标"}, …],
+    "valuation": {"type":"D","formula":"…","fair":"…","range":"…","judge":"合理","note":"…"},
+    "safety": [{"t":"估值分位<30%","ok":false,"note":"…"}, …],
+    "tech": {"state":"右侧强趋势","pos20":0.85,"risk_level":"LOW","risk_score":12,
+             "ma5":510,"ma20":488,"ma55":460,"sig":[["缩量回调","BUY","RIGHT"]],"advice":["可低吸"]},
+    "verdict": {"action":"HOLD","target":"仓位上限25%","entry":"理想买点…","add":"加仓节奏…","exit":"卖出触发…"},
+    "risks": ["…","…"],
+    "quote": "胜于易胜者"
+  }
+}
+EOF
+python scripts/render_report.py single.json --outdir .   # 自动命名 腾讯控股_个股深度_2026-08-08.html
+```
+
+完整 `single` schema 见 `scripts/render_report.py` 顶部 docstring。
 
 ## 回测验证
 

@@ -48,6 +48,63 @@ input.json 结构:
 }
 
 tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 tech 字段…}, … }
+
+================================================================================
+单只股票「个股深度」模式（全面公司分析，非组合卡片）
+--------------------------------------------------------------------------------
+当 input.json 含 "single" 字段时，渲染器走 report_single.html，输出一家公司的
+全面深度分析：公司画像 / 定性(5块) / 财务体检 / 估值 / 安全边际 / 技术面 / 双视角结论。
+
+{
+  "scope":"腾讯控股", "kind":"个股深度", "date":"2026-08-08",
+  "title":"腾讯控股 · 个股深度分析",
+  "subtitle":"数据截至 … | 框架：守拙君五步法 + 李录审美",
+  "single":{
+    "summary":"一句话定位：…",
+    "profile":{
+      "industry":"互联网/社交游戏", "mktcap":"3.2万亿 HKD",
+      "px":520.5, "cur":"HKD", "pe":"22", "pb":"4.2", "roe":"23%", "g":"12%", "peg":"1.8",
+      "hi52":620, "lo52":360,            # 自动算 52w 分位
+      "cls":"进攻",                       # 守拙君分类
+      "liulu":{"业务质量":5,"管理层":5,"长坡厚雪":5,"价格":3,"能力圈":5,"集中耐心":5}  # 李录六维 1-5
+    },
+    "qualitative":{                       # 五块定性
+      "business":"商业模式：…", "moat":"护城河：…", "competition":"竞争格局：…",
+      "mgmt":"管理层：…", "demand":"长期需求：…"
+    },
+    "financials":[                        # 财务体检表
+      {"k":"ROE(近5年)","v":">22%","std":"连续5年>15%","ok":"达标"},
+      {"k":"经营现金流/净利","v":"110%","std":">80%","ok":"达标"},
+      {"k":"有息负债率","v":"<10%","std":"<60%","ok":"达标"},
+      {"k":"毛利率","v":"52%","std":"稳定/提升","ok":"达标"},
+      {"k":"分红率","v":"40%","std":"防守>50%","ok":"观察"}
+    ],
+    "valuation":{                         # 估值分析
+      "type":"D","formula":"剩余PE = (市值-净现金-股权)/主营利润",
+      "fair":"合理剩余PE 15-25","range":"低估<15 / 合理15-30 / 高估>30",
+      "judge":"合理","note":"当前剩余PE≈20，处历史45%分位，合理"
+    },
+    "safety":[                            # 安全边际清单
+      {"t":"估值历史分位<30% 或 PEG<1 或 PB<1.2","ok":false,"note":"当前45%分位，未达最优买点"},
+      {"t":"零增长收益率>8%","ok":true,"note":"股息+回购收益率约4%，安全边际一般"},
+      {"t":"单只仓位≤25%(进攻)/15%(防守)","ok":true},
+      {"t":"看得懂未来5年利润来源","ok":true},
+      {"t":"股价再跌30%睡得着","ok":true}
+    ],
+    "tech":{ "state":"右侧强趋势","pos20":0.85,"risk_level":"LOW","risk_score":12,
+             "ma5":510,"ma20":488,"ma55":460,"sig":[["缩量回调","BUY","RIGHT"]],
+             "advice":["趋势内回调可低吸，SELL信号反指"] },
+    "verdict":{                           # 双视角交叉结论
+      "action":"HOLD","target":"仓位上限25%，首次建仓30-50%",
+      "entry":"理想买点：剩余PE<18（≈460以下）或回踩MA20",
+      "add":"每跌10-15%加仓，涨20%停加，保留5-15%现金",
+      "exit":"卖出触发：估值>70%分位且无更高理由 / 护城河证伪 / 连续2季超预期下滑"
+    },
+    "risks":["游戏版号政策风险","广告复苏不及预期","回购节奏放缓"],
+    "quote":"「胜于易胜者」"
+  }
+}
+注：单只模式也可同时保留 items:[{code,name,...}] 以兼容旧字段，但渲染优先用 single。
 """
 import argparse
 import datetime
@@ -297,6 +354,212 @@ def render(cfg, tech_ext):
     return out, rows
 
 
+# ================ 单只股票「个股深度」渲染（全面公司分析） ================
+SINGLE_TPL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", "report_single.html")
+
+
+def action_badge(action):
+    a = (action or "观望").strip()
+    if a.startswith("买入"):
+        return "b-buy"
+    if a.startswith("卖出") or a.startswith("放弃"):
+        return "b-no"
+    if "等" in a:
+        return "b-wait"
+    return "b-watch"
+
+
+def liulu_color(s):
+    try:
+        s = int(s)
+    except (TypeError, ValueError):
+        return "#8b949e"
+    return "#56d364" if s >= 4 else ("#e3c14a" if s == 3 else "#ff7b72")
+
+
+def col52(p):
+    if p is None:
+        return "#8b949e"
+    return "#3b82f6" if p < 30 else ("#eab308" if p <= 70 else "#ef4444")
+
+
+def sbar(pct, col, label):
+    p = 0 if pct is None else max(0, min(100, pct))
+    return (f'<div class="sbar"><div class="sf" style="width:{p:.0f}%;background:{col}"></div>'
+            f'<span class="lab">{esc(label)}</span></div>')
+
+
+def build_profile(prof, pos52):
+    def cell(k, v, col=None):
+        vv = esc(v) if v is not None else "—"
+        style = f' style="color:{col}"' if col else ""
+        return f'<div class="pcell"><div class="k">{k}</div><div class="v"{style}>{vv}</div></div>'
+
+    parts = []
+    parts.append(cell("行业", prof.get("industry")))
+    parts.append(cell("市值", prof.get("mktcap")))
+    px, cur = prof.get("px"), prof.get("cur", "")
+    parts.append(cell("现价", f"{px} {cur}".strip() if px is not None else None))
+    parts.append(cell("PE", prof.get("pe")))
+    parts.append(cell("PB", prof.get("pb")))
+    parts.append(cell("ROE", prof.get("roe")))
+    parts.append(cell("增速g", prof.get("g")))
+    parts.append(cell("PEG", prof.get("peg")))
+    parts.append(cell("股息率", prof.get("div")))
+    pp, pcol = pos52_cell(pos52)
+    parts.append(cell("52w分位", pp, pcol))
+    grid = f'<div class="pgrid">{"".join(parts)}</div>'
+
+    liulu = prof.get("liulu") or {}
+    dims = []
+    for name, sc in liulu.items():
+        c = liulu_color(sc)
+        dims.append(f'<div class="dim">{esc(name)}<span class="sc" style="color:{c}">{sc}/5</span></div>')
+    liulu_html = (f'<div class="liulu"><span style="color:var(--mut);font-size:12px;align-self:center">'
+                  f'李录六维审美</span>{"".join(dims)}</div>') if dims else ""
+    return grid + liulu_html
+
+
+QUAL_LABELS = [("business", "商业模式"), ("moat", "护城河"), ("competition", "竞争格局"),
+               ("mgmt", "管理层"), ("demand", "长期需求")]
+
+
+def build_qual(q):
+    cells = []
+    for key, lab in QUAL_LABELS:
+        txt = q.get(key)
+        if not txt:
+            continue
+        cells.append(f'<div class="qcell"><div class="qt">{lab}</div><div class="qb">{esc(txt)}</div></div>')
+    return "".join(cells) or '<div class="qb" style="color:var(--mut)">（未提供定性内容）</div>'
+
+
+def build_fin(rows):
+    if not rows:
+        return '<div class="qb" style="color:var(--mut)">（未提供财务数据）</div>'
+    trs = []
+    for r in rows:
+        ok = r.get("ok", "观察")
+        cls = "ok-y" if ok == "达标" else ("ok-n" if ok == "淘汰" else "ok-w")
+        trs.append(f'<tr><td>{esc(r.get("k"))}</td><td>{esc(r.get("v"))}</td>'
+                   f'<td style="color:var(--mut)">{esc(r.get("std"))}</td>'
+                   f'<td class="{cls}">{esc(ok)}</td></tr>')
+    return ('<table><thead><tr><th>指标</th><th>实测值</th><th>门槛/标准</th><th>状态</th></tr></thead>'
+            f'<tbody>{"".join(trs)}</tbody></table>')
+
+
+def build_val(v):
+    if not v:
+        return '<div class="qb" style="color:var(--mut)">（未提供估值分析）</div>'
+    jc = {"低估": "b-buy", "合理": "b-watch", "高估": "b-no"}.get(v.get("judge"), "b-watch")
+    return (f'<div class="valbox">'
+            f'<div class="vk">估值类型</div><div class="vv"><span class="badge b-alt">类型{v.get("type", "—")}</span></div>'
+            f'<div class="vk">公式</div><div class="vv">{esc(v.get("formula", "—"))}</div>'
+            f'<div class="vk">合理区间</div><div class="vv">{esc(v.get("range", "—"))}</div>'
+            f'<div class="vk">判断</div><div class="vv"><span class="badge {jc}">{esc(v.get("judge", "—"))}</span></div>'
+            f'</div><div class="qb" style="margin-top:10px;color:#c9d1d9">{esc(v.get("note", ""))}</div>')
+
+
+def build_safety(items):
+    if not items:
+        return '<div class="qb" style="color:var(--mut)">（未提供安全边际清单）</div>'
+    out = []
+    for it in items:
+        ok = it.get("ok")
+        mk = '<span class="mk ok-y">✓</span>' if ok else '<span class="mk ok-n">✗</span>'
+        out.append(f'<li>{mk}<div class="txt">{esc(it.get("t"))}'
+                   f'<div class="nt">{esc(it.get("note", ""))}</div></div></li>')
+    return f'<ul class="safety">{"".join(out)}</ul>'
+
+
+def _norm_sig(s):
+    if isinstance(s, dict):
+        return (s.get("strategy", s.get("type", "?")), s.get("type", s.get("side", "?")), s.get("side", "?"))
+    if isinstance(s, (list, tuple)) and len(s) >= 3:
+        return (s[0], s[1], s[2])
+    return ("?", "?", "?")
+
+
+def build_tech_single(tech, pos52):
+    if not tech:
+        return '<div class="qb" style="color:var(--mut)">无技术数据</div>'
+    state = infer_state(tech)
+    pos20 = norm_pct(tech.get("pos20"))
+    col20 = COLST.get(state, "#8b949e")
+    sig = tech.get("sig") or tech.get("signals") or []
+    sigtxt = "、".join(f"{esc(a)}·{esc(b)}/{esc(c)}" for a, b, c in (_norm_sig(s) for s in sig)) or "无触发信号"
+    adv = "；".join(esc(a) for a in tech.get("advice") or []) or "无特别建议"
+    p52bar = sbar(pos52, col52(pos52), f"52w 分位 {pos52:.0f}%" if pos52 is not None else "52w 分位 —") \
+        if pos52 is not None else ""
+    tbar = sbar(pos20, col20, f"20日位置 {pos20:.0f}%" if pos20 is not None else "20日位置 —")
+    return (f'<div class="tech">'
+            f'<div class="tr"><span>趋势状态</span><b><span class="badge {STB.get(state, "b-drop")}">{esc(state)}</span></b></div>'
+            f'{p52bar}{tbar}'
+            f'<div class="tr"><span>均线</span><b>MA5 {esc(tech.get("ma5", "—"))} / MA20 {esc(tech.get("ma20", "—"))} / MA55 {esc(tech.get("ma55", "—"))}</b></div>'
+            f'<div class="tr"><span>风险分</span><b><span class="badge {RSKB.get(tech.get("risk_level", "—"), "b-drop")}">{esc(tech.get("risk_level", "—"))} {esc(tech.get("risk_score", "—"))}</span></b></div>'
+            f'<div class="tr"><span>信号</span><b>{sigtxt}</b></div>'
+            f'<div class="adv">→ {adv}</div></div>')
+
+
+def build_verdict(v):
+    if not v:
+        return '<div class="qb" style="color:var(--mut)">（未提供结论）</div>'
+    return (f'<div class="vrow"><div class="vk">综合结论</div><div class="vv"><span class="badge {action_badge(v.get("action"))}">{esc(v.get("action", "—"))}</span></div></div>'
+            f'<div class="vrow"><div class="vk">目标仓位</div><div class="vv">{esc(v.get("target", "—"))}</div></div>'
+            f'<div class="vrow"><div class="vk">理想买点</div><div class="vv">{esc(v.get("entry", "—"))}</div></div>'
+            f'<div class="vrow"><div class="vk">加仓节奏</div><div class="vv">{esc(v.get("add", "—"))}</div></div>'
+            f'<div class="vrow"><div class="vk">卖出触发</div><div class="vv">{esc(v.get("exit", "—"))}</div></div>')
+
+
+def build_risks(items):
+    if not items:
+        return "<li>—</li>"
+    return "".join(f"<li>{esc(x)}</li>" for x in items)
+
+
+def render_single(cfg):
+    s = cfg.get("single") or {}
+    prof = s.get("profile", {}) or {}
+    pos52 = prof.get("pos52")
+    if pos52 is None and prof.get("hi52") and prof.get("lo52") is not None:
+        hi, lo, px = float(prof["hi52"]), float(prof["lo52"]), float(prof.get("px") or 0)
+        pos52 = (px - lo) / (hi - lo) * 100 if hi > lo else None
+    pos52 = norm_pct(pos52)
+
+    items = cfg.get("items") or []
+    name = prof.get("name") or cfg.get("scope") or (items[0].get("name", "") if items else "")
+    code = prof.get("code") or (items[0].get("code", "") if items else "")
+    cls = prof.get("cls") or "—"
+    action = (s.get("verdict") or {}).get("action", "观望")
+    summary = s.get("summary", "")
+    quote = s.get("quote")
+
+    with open(SINGLE_TPL_PATH, encoding="utf-8") as f:
+        tpl = f.read()
+    out = (tpl
+           .replace("{{TITLE}}", esc(cfg.get("title", f"{name} · 个股深度分析")))
+           .replace("{{SUBTITLE}}", cfg.get("subtitle", ""))
+           .replace("{{CALLOUT}}", f'<div class="callout">{cfg["callout"]}</div>' if cfg.get("callout") else "")
+           .replace("{{NAME}}", esc(name))
+           .replace("{{CODE}}", esc(code))
+           .replace("{{CLS}}", esc(cls))
+           .replace("{{CLSB}}", CLSB.get(cls, "b-drop"))
+           .replace("{{ACTION}}", esc(action))
+           .replace("{{VC}}", action_badge(action))
+           .replace("{{SUMMARY}}", esc(summary))
+           .replace("{{PROFILE}}", build_profile(prof, pos52))
+           .replace("{{QUAL}}", build_qual(s.get("qualitative", {})))
+           .replace("{{FIN}}", build_fin(s.get("financials", [])))
+           .replace("{{VAL}}", build_val(s.get("valuation")))
+           .replace("{{SAFETY}}", build_safety(s.get("safety", [])))
+           .replace("{{TECH}}", build_tech_single(s.get("tech"), pos52))
+           .replace("{{VERDICT}}", build_verdict(s.get("verdict")))
+           .replace("{{RISKS}}", build_risks(s.get("risks", [])))
+           .replace("{{QUOTE}}", f'<div class="sec-t">九、守拙君金句</div><div class="quote">「{esc(quote)}」</div>' if quote else "")
+           .replace("{{FOOTER}}", cfg.get("footer", "本报告为框架化研究，非投资建议。")))
+    return out
+
+
 # ---------------- 文件命名规范 ----------------
 # 统一格式: {范围}_{类型}_{YYYY-MM-DD}.html
 #   范围 scope : 分组名/标的名/主题 —— 持仓个股 / 持仓ETF / 关注池 / 半导体主线 / 药明康德
@@ -336,31 +599,40 @@ def main():
 
     with open(args.input, encoding="utf-8") as f:
         cfg = json.load(f)
-    if not cfg.get("items"):
-        sys.exit("input.json 缺少 items")
+    if not cfg.get("single") and not cfg.get("items"):
+        sys.exit("input.json 缺少 items（组合模式）或 single（个股深度模式）")
 
     tech_ext = {}
     if args.tech:
         with open(args.tech, encoding="utf-8") as f:
             tech_ext = json.load(f)
 
-    out, rows = render(cfg, tech_ext)
+    if cfg.get("single"):
+        out = render_single(cfg)
+        n_items = 1
+    else:
+        out, rows = render(cfg, tech_ext)
+        n_items = len(rows)
 
     if args.output:
         target = args.output
     else:
-        target = dedupe_path(os.path.join(args.outdir, build_filename(cfg, len(rows))))
+        target = dedupe_path(os.path.join(args.outdir, build_filename(cfg, n_items)))
     d = os.path.dirname(os.path.abspath(target))
     os.makedirs(d, exist_ok=True)
     with open(target, "w", encoding="utf-8") as f:
         f.write(out)
     args.output = target
 
-    print(f"written: {args.output} ({os.path.getsize(args.output)} bytes, {len(rows)} items)")
-    dist = {}
-    for r in rows:
-        dist[r["verdict"]] = dist.get(r["verdict"], 0) + 1
-    print("结论分布:", " | ".join(f"{k} {v}" for k, v in sorted(dist.items(), key=lambda x: -x[1])))
+    print(f"written: {args.output} ({os.path.getsize(args.output)} bytes, mode={'个股深度' if cfg.get('single') else '组合体检'}, {n_items} item)")
+    if cfg.get("single"):
+        action = (cfg.get("single", {}).get("verdict") or {}).get("action", "观望")
+        print("单只结论:", action)
+    else:
+        dist = {}
+        for r in rows:
+            dist[r["verdict"]] = dist.get(r["verdict"], 0) + 1
+        print("结论分布:", " | ".join(f"{k} {v}" for k, v in sorted(dist.items(), key=lambda x: -x[1])))
 
 
 if __name__ == "__main__":
