@@ -53,7 +53,9 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
 单只股票「个股深度」模式（全面公司分析，非组合卡片）
 --------------------------------------------------------------------------------
 当 input.json 含 "single" 字段时，渲染器走 report_single.html，输出一家公司的
-全面深度分析：公司画像 / 定性(5块) / 财务体检 / 估值 / 安全边际 / 技术面 / 双视角结论。
+全面深度分析（基本面为主、技术面辅助）：公司画像 / 定性(5块) / 财务质量体检 /
+资本回报与现金创造力(李录核心) / 股东回报 / 估值(含历史分位与价位) / 安全边际 /
+技术面(辅助) / 双视角结论。
 
 {
   "scope":"腾讯控股", "kind":"个股深度", "date":"2026-08-08",
@@ -68,21 +70,41 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
       "cls":"进攻",                       # 守拙君分类
       "liulu":{"业务质量":5,"管理层":5,"长坡厚雪":5,"价格":3,"能力圈":5,"集中耐心":5}  # 李录六维 1-5
     },
-    "qualitative":{                       # 五块定性
-      "business":"商业模式：…", "moat":"护城河：…", "competition":"竞争格局：…",
-      "mgmt":"管理层：…", "demand":"长期需求：…"
+    "qualitative":{                       # 五块定性（可加标签 chips）
+      "business":"商业模式：…", "moat":"护城河：…", "moat_type":["品牌","网络效应"],
+      "competition":"竞争格局：…", "mgmt":"管理层：…",
+      "mgmt_tags":["专注主业","资本配置理性","诚信透明"], "demand":"长期需求：…"
     },
-    "financials":[                        # 财务体检表
+    "financials":[                        # 财务体检表（门槛指标，可扩展任意行）
+      {"k":"ROIC(近5年)","v":">20%","std":"高于WACC","ok":"达标"},
       {"k":"ROE(近5年)","v":">22%","std":"连续5年>15%","ok":"达标"},
-      {"k":"经营现金流/净利","v":"110%","std":">80%","ok":"达标"},
-      {"k":"有息负债率","v":"<10%","std":"<60%","ok":"达标"},
       {"k":"毛利率","v":"52%","std":"稳定/提升","ok":"达标"},
+      {"k":"净利率","v":"28%","std":"稳定","ok":"达标"},
+      {"k":"经营现金流/净利","v":"110%","std":">80%","ok":"达标"},
+      {"k":"自由现金流/净利","v":"95%","std":">80%","ok":"达标"},
+      {"k":"资本开支/净利","v":"25%","std":"轻资产<30%","ok":"达标"},
+      {"k":"有息负债率","v":"<10%","std":"<60%","ok":"达标"},
       {"k":"分红率","v":"40%","std":"防守>50%","ok":"观察"}
     ],
+    "capital":{                           # 资本回报与现金创造力（李录核心）
+      "roic":"ROIC 近5年 18-23%，高于 WACC 约 10pct",
+      "fcf":"自由现金流/净利润 95%，现金创造力强",
+      "blackhole":false,                  # true=资本黑洞(警告)
+      "blackhole_note":"资本开支可控，未吞噬自由现金流",
+      "summary":"高 ROIC + 强现金转化，典型非资本黑洞优质生意"
+    },
+    "returns":{                           # 股东回报（分红/回购）
+      "payout":"分红率 40%","div_yield":"股息率 0.9%",
+      "buyback":"年回购约 3% 股本（等效收益率 ~3%）",
+      "total":"分红+回购综合收益率 ~4%",
+      "note":"成长阶段回购为主，股东回报实在但股息率偏低"
+    },
     "valuation":{                         # 估值分析
       "type":"D","formula":"剩余PE = (市值-净现金-股权)/主营利润",
       "fair":"合理剩余PE 15-25","range":"低估<15 / 合理15-30 / 高估>30",
-      "judge":"合理","note":"当前剩余PE≈20，处历史45%分位，合理"
+      "judge":"合理","pos_hist":45,       # 历史估值分位 %
+      "fair_price":"安全边际买点：剩余PE<18 ≈ 460 HKD 以下",
+      "note":"当前剩余PE≈20，处历史45%分位，合理"
     },
     "safety":[                            # 安全边际清单
       {"t":"估值历史分位<30% 或 PEG<1 或 PB<1.2","ok":false,"note":"当前45%分位，未达最优买点"},
@@ -422,6 +444,7 @@ def build_profile(prof, pos52):
 
 QUAL_LABELS = [("business", "商业模式"), ("moat", "护城河"), ("competition", "竞争格局"),
                ("mgmt", "管理层"), ("demand", "长期需求")]
+QUAL_CHIPS = {"moat": "moat_type", "mgmt": "mgmt_tags"}
 
 
 def build_qual(q):
@@ -430,8 +453,49 @@ def build_qual(q):
         txt = q.get(key)
         if not txt:
             continue
-        cells.append(f'<div class="qcell"><div class="qt">{lab}</div><div class="qb">{esc(txt)}</div></div>')
+        chip_key = QUAL_CHIPS.get(key)
+        chips = ""
+        if chip_key:
+            vals = q.get(chip_key) or []
+            if vals:
+                chips = '<div class="chips">' + "".join(f'<span class="chip">{esc(x)}</span>' for x in vals) + '</div>'
+        cells.append(f'<div class="qcell"><div class="qt">{lab}</div><div class="qb">{esc(txt)}</div>{chips}</div>')
     return "".join(cells) or '<div class="qb" style="color:var(--mut)">（未提供定性内容）</div>'
+
+
+def build_capital(c):
+    """李录核心：资本回报与现金创造力（高 ROIC、忌资本黑洞）。"""
+    if not c:
+        return '<div class="qb" style="color:var(--mut)">（未提供资本回报分析）</div>'
+    bh = c.get("blackhole")
+    if bh:
+        bh_html = '<span class="badge b-no">⚠ 资本黑洞</span> '
+        bh_cls = "ok-n"
+    else:
+        bh_html = '<span class="badge b-def">✓ 非资本黑洞</span> '
+        bh_cls = "ok-y"
+    bh_note = esc(c.get("blackhole_note", ""))
+    summary = c.get("summary", "")
+    summary_html = (f'结论：<b>{esc(summary)}</b>' if summary else "")
+    return (f'<div class="cap">'
+            f'<div class="cr"><div class="ck">ROIC（近5年）</div><div class="cv">{esc(c.get("roic", "—"))}</div></div>'
+            f'<div class="cr"><div class="ck">自由现金流/净利</div><div class="cv">{esc(c.get("fcf", "—"))}</div></div>'
+            f'<div class="cr"><div class="ck">资本黑洞检查</div><div class="cv">{bh_html}<span class="{bh_cls}">{bh_note}</span></div></div>'
+            f'<div class="note">{summary_html}</div></div>')
+
+
+def build_returns(r):
+    """股东回报：分红 / 回购 / 综合收益率。"""
+    if not r:
+        return '<div class="qb" style="color:var(--mut)">（未提供股东回报数据）</div>'
+    total = r.get("total")
+    tcls = " rv hi" if total else "rv"
+    return (f'<div class="retbox">'
+            f'<div class="rk">分红率</div><div class="rv">{esc(r.get("payout", "—"))}</div>'
+            f'<div class="rk">股息率</div><div class="rv">{esc(r.get("div_yield", "—"))}</div>'
+            f'<div class="rk">年回购力度</div><div class="rv">{esc(r.get("buyback", "—"))}</div>'
+            f'<div class="rk">综合收益率</div><div class="rv{tcls}">{esc(total or "—")}</div>'
+            f'</div><div class="qb" style="margin-top:10px;color:#c9d1d9">{esc(r.get("note", ""))}</div>')
 
 
 def build_fin(rows):
@@ -452,12 +516,25 @@ def build_val(v):
     if not v:
         return '<div class="qb" style="color:var(--mut)">（未提供估值分析）</div>'
     jc = {"低估": "b-buy", "合理": "b-watch", "高估": "b-no"}.get(v.get("judge"), "b-watch")
+    pos_hist = v.get("pos_hist")
+    hist_bar = ""
+    if pos_hist is not None:
+        try:
+            p = float(pos_hist)
+            hc = "#3b82f6" if p < 30 else ("#eab308" if p <= 70 else "#ef4444")
+            hist_bar = sbar(p, hc, f"历史估值分位 {p:.0f}%")
+        except (TypeError, ValueError):
+            pass
+    fair = v.get("fair_price")
+    fair_html = f'<div class="vk">安全边际价位</div><div class="vv hi">{esc(fair)}</div>' if fair else ""
     return (f'<div class="valbox">'
             f'<div class="vk">估值类型</div><div class="vv"><span class="badge b-alt">类型{v.get("type", "—")}</span></div>'
             f'<div class="vk">公式</div><div class="vv">{esc(v.get("formula", "—"))}</div>'
             f'<div class="vk">合理区间</div><div class="vv">{esc(v.get("range", "—"))}</div>'
             f'<div class="vk">判断</div><div class="vv"><span class="badge {jc}">{esc(v.get("judge", "—"))}</span></div>'
-            f'</div><div class="qb" style="margin-top:10px;color:#c9d1d9">{esc(v.get("note", ""))}</div>')
+            f'{fair_html}'
+            f'</div>{hist_bar}'
+            f'<div class="qb" style="margin-top:10px;color:#c9d1d9">{esc(v.get("note", ""))}</div>')
 
 
 def build_safety(items):
@@ -498,7 +575,8 @@ def build_tech_single(tech, pos52):
             f'<div class="tr"><span>均线</span><b>MA5 {esc(tech.get("ma5", "—"))} / MA20 {esc(tech.get("ma20", "—"))} / MA55 {esc(tech.get("ma55", "—"))}</b></div>'
             f'<div class="tr"><span>风险分</span><b><span class="badge {RSKB.get(tech.get("risk_level", "—"), "b-drop")}">{esc(tech.get("risk_level", "—"))} {esc(tech.get("risk_score", "—"))}</span></b></div>'
             f'<div class="tr"><span>信号</span><b>{sigtxt}</b></div>'
-            f'<div class="adv">→ {adv}</div></div>')
+            f'<div class="adv">→ {adv}</div>'
+            f'<div class="aux-note">技术面仅作买入/加仓的择时辅助，不改变基本面结论；右侧不追高、破位减仓，仅供参考。</div></div>')
 
 
 def build_verdict(v):
@@ -550,6 +628,8 @@ def render_single(cfg):
            .replace("{{PROFILE}}", build_profile(prof, pos52))
            .replace("{{QUAL}}", build_qual(s.get("qualitative", {})))
            .replace("{{FIN}}", build_fin(s.get("financials", [])))
+           .replace("{{CAPITAL}}", build_capital(s.get("capital")))
+           .replace("{{RETURNS}}", build_returns(s.get("returns")))
            .replace("{{VAL}}", build_val(s.get("valuation")))
            .replace("{{SAFETY}}", build_safety(s.get("safety", [])))
            .replace("{{TECH}}", build_tech_single(s.get("tech"), pos52))
