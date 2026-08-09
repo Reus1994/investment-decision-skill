@@ -170,7 +170,12 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
       "add":"每跌10-15%加仓，涨20%停加，保留5-15%现金",
       "exit":"卖出触发：估值>70%分位且无更高理由 / 护城河证伪 / 连续2季超预期下滑"
     },
-    "risks":["游戏版号政策风险","广告复苏不及预期","回购节奏放缓"],
+    "risks":[                            # 风险提示：结构化(推荐) 或 纯字符串(兼容)
+      {"type":"政策","level":"高","text":"游戏版号审批节奏不确定性，新游上线可能延后，直接影响游戏管线释放","watch":"每月版署版号发放数量与腾讯在列情况、未成年防沉迷政策"},
+      {"type":"经营","level":"中","text":"广告业务复苏依赖宏观消费，若复苏不及预期将拖累整体增速","watch":"季度广告收入同比、社零/互联网广告大盘数据"},
+      {"type":"估值","level":"中","text":"PE 处历史低分位但非极端便宜，若美债利率上行港股估值承压","watch":"10Y 美债收益率、港股风险溢价"},
+      {"type":"竞争","level":"低","text":"短视频挤占用户时长，字节系仍是最大广告与娱乐对手","watch":"微信视频号时长/加载率、腾讯广告份额变化"}
+    ],
     "quote":"「胜于易胜者」"
   }
 }
@@ -798,10 +803,39 @@ def build_verdict(v):
             f'<div class="vrow"><div class="vk">卖出触发</div><div class="vv">{esc(v.get("exit", "—"))}</div></div>')
 
 
+RLB = {"高": "r-high", "中": "r-mid", "低": "r-low"}
+
+
 def build_risks(items):
+    """风险提示：支持结构化项 {type,level,text,watch}；纯字符串向后兼容。"""
     if not items:
-        return "<li>—</li>"
-    return "".join(f"<li>{esc(x)}</li>" for x in items)
+        return '<div class="qb" style="color:var(--mut)">（未提供风险分析）</div>'
+    # 计数概览
+    cnt = {"高": 0, "中": 0, "低": 0}
+    cards = []
+    for it in items:
+        if isinstance(it, dict):
+            lvl = it.get("level") or "中"
+            cnt[lvl] = cnt.get(lvl, 0) + 1
+            badge = f'<span class="rbadge {RLB.get(lvl, "r-mid")}">{esc(lvl)}风险</span>'
+            typ = it.get("type")
+            tag = f'<span class="rtag">{esc(typ)}</span>' if typ else ""
+            txt = esc(it.get("text") or it.get("risk") or "")
+            watch = it.get("watch")
+            watch_html = (f'<div class="rwatch">→ 关注信号：{esc(watch)}</div>') if watch else ""
+            cards.append(f'<li class="ritem">{badge}{tag}'
+                         f'<div class="rbody"><div class="rtext">{txt}</div>{watch_html}</div></li>')
+        else:
+            cnt["中"] += 1
+            cards.append(f'<li class="ritem"><span class="rbadge r-mid">中风险</span>'
+                         f'<div class="rbody"><div class="rtext">{esc(it)}</div></div></li>')
+    overview = (f'<div class="roverview">共 {sum(cnt.values())} 项风险 · '
+                f'<span class="r-high">高 {cnt["高"]}</span> · '
+                f'<span class="r-mid">中 {cnt["中"]}</span> · '
+                f'<span class="r-low">低 {cnt["低"]}</span></div>')
+    note = ('<div class="rnote">分级标准：<b>高</b>=可能直接侵蚀护城河或自由现金流（一票否决级）；'
+            '<b>中</b>=影响增速但可逆；<b>低</b>=短期扰动、不改长期逻辑。每项附「关注信号」便于持续跟踪。</div>')
+    return overview + note + f'<ul class="risklist">{"".join(cards)}</ul>'
 
 
 def render_single(cfg):
