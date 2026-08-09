@@ -210,6 +210,19 @@ def esc(v):
     return html.escape(str(v), quote=False)
 
 
+_DEPREFIX = ["理想买点：", "加仓节奏：", "卖出触发：", "目标仓位：", "仓位管理：", "仓位："]
+
+
+def _deprefix(s):
+    """去掉 verdict 字段值里习惯性带的中文标签前缀，避免与版式标签重复。"""
+    if not isinstance(s, str):
+        return s
+    for p in _DEPREFIX:
+        if s.startswith(p):
+            return s[len(p):]
+    return s
+
+
 def fv_badge(fv):
     if "放弃" in fv:
         return "b-no"
@@ -800,12 +813,14 @@ def _sig_row(cls, arrow, nm, side_cn, rd):
             f'<span class="ts-read">{esc(rd)}</span></div>')
 
 
-def build_tech_single(tech, pos52, fv="观望"):
+def build_tech_single(tech, pos52, verdict=None):
     """技术面（辅助）：重构成「择时仪表盘」。
     重点放在顶部一句择时结论（cross_verdict 推导），下面三栏核心指标 +
     价格位置标尺 + 按买/卖方向分组的量价信号，让基本面投资者一眼看懂「现在该不该动手」。"""
     if not tech:
         return '<div class="qb" style="color:var(--mut)">无技术数据</div>'
+    vd = verdict if isinstance(verdict, dict) else {}
+    fv = vd.get("action", "观望")
     state = infer_state(tech)
     pos20 = norm_pct(tech.get("pos20"))
     p52 = pos52 if pos52 is not None else norm_pct(tech.get("pos52"))
@@ -911,6 +926,27 @@ def build_tech_single(tech, pos52, fv="观望"):
         sig_html += ('<div class="ts-h" style="color:#eab308;margin-top:2px">'
                      '提示：强趋势中的「左侧卖出」信号多属反指，不据此卖出；仅当跌破 MA20 才考虑减仓。</div>')
 
+    # 5.5) 操作信号卡（从基本面结论 verdict 提取动作化指引：买点/加仓/卖出触发/仓位）
+    entry = _deprefix(vd.get("entry"))
+    add = _deprefix(vd.get("add"))
+    exit_ = _deprefix(vd.get("exit"))
+    target = _deprefix(vd.get("target"))
+    act_rows = []
+    if entry:
+        act_rows.append(f'<div class="tact-item buy"><span class="tact-k">理想买点</span>'
+                        f'<span class="tact-v">{esc(entry)}</span></div>')
+    if add:
+        act_rows.append(f'<div class="tact-item add"><span class="tact-k">加仓节奏</span>'
+                        f'<span class="tact-v">{esc(add)}</span></div>')
+    if exit_:
+        act_rows.append(f'<div class="tact-item exit"><span class="tact-k">卖出触发</span>'
+                        f'<span class="tact-v">{esc(exit_)}</span></div>')
+    if target:
+        act_rows.append(f'<div class="tact-item"><span class="tact-k">仓位管理</span>'
+                        f'<span class="tact-v">{esc(target)}</span></div>')
+    act_html = (f'<div class="tact"><div class="tact-h">⚡ 操作信号（买点 / 加仓 / 卖出触发）</div>'
+                f'{"".join(act_rows)}</div>') if act_rows else ""
+
     # 5) 择时建议
     adv = "；".join(esc(a) for a in tech.get("advice") or []) or "无特别建议"
 
@@ -937,6 +973,7 @@ def build_tech_single(tech, pos52, fv="观望"):
             f'<i class="pa-ptr" style="left:{ptr_left}"></i></div>'
             f'<div class="pa-cap">{pa_cap}</div></div>'
             f'<div class="tsigs">{sig_html}</div>'
+            f'{act_html}'
             f'<div class="tadv">→ {adv}</div>'
             f'<div class="aux-note">技术面仅作买入/加仓的择时辅助，不改变基本面结论；右侧不追高、破位减仓，仅供参考。</div>'
             f'</div>')
@@ -946,10 +983,10 @@ def build_verdict(v):
     if not v:
         return '<div class="qb" style="color:var(--mut)">（未提供结论）</div>'
     return (f'<div class="vrow"><div class="vk">综合结论</div><div class="vv"><span class="badge {action_badge(v.get("action"))}">{esc(v.get("action", "—"))}</span></div></div>'
-            f'<div class="vrow"><div class="vk">目标仓位</div><div class="vv">{esc(v.get("target", "—"))}</div></div>'
-            f'<div class="vrow"><div class="vk">理想买点</div><div class="vv">{esc(v.get("entry", "—"))}</div></div>'
-            f'<div class="vrow"><div class="vk">加仓节奏</div><div class="vv">{esc(v.get("add", "—"))}</div></div>'
-            f'<div class="vrow"><div class="vk">卖出触发</div><div class="vv">{esc(v.get("exit", "—"))}</div></div>')
+            f'<div class="vrow"><div class="vk">目标仓位</div><div class="vv">{esc(_deprefix(v.get("target", "—")))}</div></div>'
+            f'<div class="vrow"><div class="vk">理想买点</div><div class="vv">{esc(_deprefix(v.get("entry", "—")))}</div></div>'
+            f'<div class="vrow"><div class="vk">加仓节奏</div><div class="vv">{esc(_deprefix(v.get("add", "—")))}</div></div>'
+            f'<div class="vrow"><div class="vk">卖出触发</div><div class="vv">{esc(_deprefix(v.get("exit", "—")))}</div></div>')
 
 
 RLB = {"高": "r-high", "中": "r-mid", "低": "r-low"}
@@ -1028,7 +1065,7 @@ def render_single(cfg):
            .replace("{{RETURNS}}", build_returns(s.get("returns")))
            .replace("{{VAL}}", build_val(s.get("valuation")))
            .replace("{{SAFETY}}", build_safety(s.get("safety", [])))
-           .replace("{{TECH}}", build_tech_single(s.get("tech"), pos52, fv=(s.get("verdict") or {}).get("action", "观望")))
+           .replace("{{TECH}}", build_tech_single(s.get("tech"), pos52, s.get("verdict")))
            .replace("{{VERDICT}}", build_verdict(s.get("verdict")))
            .replace("{{RISKS}}", build_risks(s.get("risks", [])))
            .replace("{{QUOTE}}", f'<div class="sec-t">九、守拙金句</div><div class="quote">「{esc(quote)}」</div>' if quote else "")
