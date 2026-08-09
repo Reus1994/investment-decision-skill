@@ -70,6 +70,13 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
       "px":520.5, "cur":"HKD", "pe":"22", "pb":"4.2", "roe":"23%", "g":"12%", "peg":"1.8",
       "hi52":620, "lo52":360,            # 自动算 52w 分位
       "cls":"进攻",                       # 守拙剑客分类
+      # —— 以下为「公司画像」丰富字段（可缺省，缺省则折叠，不报错）——
+      "desc":"以微信/QQ 社交底座为核心的平台型互联网公司，业务横跨游戏、广告、金融科技与企业服务。",
+      "listing":"港交所主板 2004-06 上市", "founded":"1998", "hq":"中国深圳",
+      "chairman":"马化腾（董事会主席兼CEO）", "employees":"约10.8万人",
+      "ctrl":"MIH(南非报业)为大股东，核心团队持表决权；无单一实控人",
+      "core_products":["微信/WeChat","《王者荣耀》等游戏","腾讯视频","腾讯云","微信支付"],
+      "position":"社交与游戏双领域国内绝对龙头，广告与金融科技稳居第一梯队",
       "liulu":{"业务质量":5,"管理层":5,"长坡厚雪":5,"价格":3,"能力圈":5,"集中耐心":5}  # 李录六维 1-5
     },
     "qualitative":{                       # 五块定性 + 量化证据
@@ -453,14 +460,32 @@ def sbar(pct, col, label):
 
 
 def build_profile(prof, pos52):
+    if not prof:
+        return '<div class="qb" style="color:var(--mut)">（未提供公司画像）</div>'
+
+    # —— 左栏：业务简述 + 关键信息 ——
+    desc = prof.get("desc")
+    fact_map = [("上市", prof.get("listing")), ("成立", prof.get("founded")), ("总部", prof.get("hq")),
+                ("管理层", prof.get("chairman")), ("员工", prof.get("employees")),
+                ("实控人", prof.get("ctrl")), ("行业地位", prof.get("position"))]
+    facts = []
+    for k, v in fact_map:
+        if v:
+            facts.append(f'<div class="fact"><span class="fk">{esc(k)}</span><span class="fv">{esc(v)}</span></div>')
+    left = ""
+    if desc:
+        left += f'<div class="pdesc">{esc(desc)}</div>'
+    if facts:
+        left += f'<div class="facts">{"".join(facts)}</div>'
+    left = left or '<div class="qb" style="color:var(--mut)">（未提供画像信息）</div>'
+
+    # —— 右栏：核心指标网格 + 核心产品 ——
     def cell(k, v, col=None):
         vv = esc(v) if v is not None else "—"
         style = f' style="color:{col}"' if col else ""
         return f'<div class="pcell"><div class="k">{k}</div><div class="v"{style}>{vv}</div></div>'
 
-    parts = []
-    parts.append(cell("行业", prof.get("industry")))
-    parts.append(cell("市值", prof.get("mktcap")))
+    parts = [cell("行业", prof.get("industry")), cell("市值", prof.get("mktcap"))]
     px, cur = prof.get("px"), prof.get("cur", "")
     parts.append(cell("现价", f"{px} {cur}".strip() if px is not None else None))
     parts.append(cell("PE", prof.get("pe")))
@@ -473,14 +498,27 @@ def build_profile(prof, pos52):
     parts.append(cell("52w分位", pp, pcol))
     grid = f'<div class="pgrid">{"".join(parts)}</div>'
 
+    prods = prof.get("core_products") or []
+    chips = ('<div class="chips" style="margin-top:10px">'
+             + "".join(f'<span class="chip">{esc(x)}</span>' for x in prods) + '</div>') if prods else ""
+    right = grid + chips
+
+    # —— 底部：李录六维审美（迷你进度条）——
     liulu = prof.get("liulu") or {}
     dims = []
     for name, sc in liulu.items():
         c = liulu_color(sc)
-        dims.append(f'<div class="dim">{esc(name)}<span class="sc" style="color:{c}">{sc}/5</span></div>')
-    liulu_html = (f'<div class="liulu"><span style="color:var(--mut);font-size:12px;align-self:center">'
-                  f'李录六维审美</span>{"".join(dims)}</div>') if dims else ""
-    return grid + liulu_html
+        try:
+            pct = int(sc) * 20
+        except (TypeError, ValueError):
+            pct = 0
+        dims.append(f'<div class="ldim"><span class="ln">{esc(name)}</span>'
+                    f'<span class="lbar"><i style="width:{pct}%;background:{c}"></i></span>'
+                    f'<span class="lsc" style="color:{c}">{esc(sc)}/5</span></div>')
+    liulu_html = (f'<div class="liulu"><div class="liulu-t">李录六维审美（1–5 分）</div>'
+                  f'{"".join(dims)}</div>') if dims else ""
+
+    return f'<div class="pwrap"><div class="pleft">{left}</div><div class="pright">{right}</div></div>{liulu_html}'
 
 
 QUAL_LABELS = [("business", "商业模式"), ("moat", "护城河"), ("competition", "竞争格局"),
