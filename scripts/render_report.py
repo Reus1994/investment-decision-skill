@@ -793,75 +793,153 @@ def _norm_sig(s):
     return ("?", "?", "?")
 
 
-def build_tech_single(tech, pos52):
+def _sig_row(cls, arrow, nm, side_cn, rd):
+    side = f'<span class="ts-side">{esc(side_cn)}</span>' if side_cn else ""
+    return (f'<div class="tsig {cls}"><span class="ts-arrow">{arrow}</span>'
+            f'<span class="ts-name">{esc(nm)}</span>{side}'
+            f'<span class="ts-read">{esc(rd)}</span></div>')
+
+
+def build_tech_single(tech, pos52, fv="观望"):
+    """技术面（辅助）：重构成「择时仪表盘」。
+    重点放在顶部一句择时结论（cross_verdict 推导），下面三栏核心指标 +
+    价格位置标尺 + 按买/卖方向分组的量价信号，让基本面投资者一眼看懂「现在该不该动手」。"""
     if not tech:
         return '<div class="qb" style="color:var(--mut)">无技术数据</div>'
     state = infer_state(tech)
     pos20 = norm_pct(tech.get("pos20"))
-    col20 = COLST.get(state, "#8b949e")
-    sig = tech.get("sig") or tech.get("signals") or []
-    sigtxt = "、".join(f"{esc(a)}·{esc(b)}/{esc(c)}" for a, b, c in (_norm_sig(s) for s in sig)) or "无触发信号"
+    p52 = pos52 if pos52 is not None else norm_pct(tech.get("pos52"))
+    p52v = p52 if p52 is not None else 50
+    risk_level = tech.get("risk_level", "—")
+    risk_score = tech.get("risk_score", "—")
+
+    # 1) 择时结论横幅（整块重点）
+    verdict, vc = cross_verdict(fv, state, p52)
+    if p52 is not None:
+        if p52v < 30:
+            zone = f"52周低位（便宜区间，{p52:.0f}%）"
+        elif p52v > 70:
+            zone = f"52周高位（偏贵，{p52:.0f}%）"
+        else:
+            zone = f"52周中位（{p52:.0f}%）"
+    else:
+        zone = "52周分位未知"
+    if verdict.startswith("买入"):
+        tv = f"基本面看好 + 技术面 {zone}，可逢回调分批建仓。"
+    elif "持有" in verdict:
+        if p52v < 30:
+            tv = f"趋势仍强且处于 {zone}：回踩 MA20 可逢低加仓；基本面结论为「持有」，故以持有为主、低位才加。"
+        else:
+            tv = f"趋势仍强但 {zone}：持有不加，回踩均线（MA20）再考虑补仓。"
+    elif "观望" in verdict or "避险" in verdict:
+        tv = f"技术面尚未给出动手信号（{zone}），等方向明确（放量站回 MA20 / 突破）再评估。"
+    elif "放弃" in verdict:
+        tv = "基本面与技术面均不支持参与，回避。"
+    else:
+        tv = "技术面辅助判断，不改变基本面结论。"
+
+    # 2) 三栏核心：趋势 / 位置 / 风险
+    ma5, ma20, ma55 = tech.get("ma5", "—"), tech.get("ma20", "—"), tech.get("ma55", "—")
+    try:
+        m5, m2, m5_ = float(ma5), float(ma20), float(ma55)
+        arrange = "多头排列 ↑" if m5 > m2 > m5_ else ("空头排列 ↓" if m5 < m2 < m5_ else "均线纠缠")
+    except (TypeError, ValueError):
+        arrange = "—"
+    trend_sub = f"{arrange} · MA5 {ma5} / MA20 {ma20} / MA55 {ma55}"
+
+    pos_class = "低位" if p52v < 30 else ("高位" if p52v > 70 else "中位")
+    pos_v = f"{p52:.0f}%" if p52 is not None else "—"
+    pos_sub = f"20日位置 {pos20:.0f}%" if pos20 is not None else "20日位置 —"
+
+    rr = tech.get("drawdown")
+    pma = tech.get("price_vs_ma20")
+    risk_sub = ""
+    if rr is not None:
+        try:
+            risk_sub += f"距52w高点回撤 -{float(rr):.1f}%"
+        except (TypeError, ValueError):
+            pass
+    if pma is not None:
+        try:
+            risk_sub += f" · 现价vsMA20 {float(pma):+.1f}%"
+        except (TypeError, ValueError):
+            pass
+    risk_sub = risk_sub or "—"
+
+    # 3) 价格位置标尺说明
+    if p52 is not None:
+        zone = "低位（便宜区间）" if p52 < 30 else ("高位（偏贵、不追）" if p52 > 70 else "中位（合理区间）")
+        pa_cap = f"当前价处于 52 周 <b>{zone}</b>"
+        if rr is not None:
+            try:
+                pa_cap += f" · 距高点回撤 <b>-{float(rr):.1f}%</b>"
+            except (TypeError, ValueError):
+                pass
+        ptr_left = f"{min(98, max(2, p52)):.0f}%"
+    else:
+        pa_cap = "52周分位数据缺失"
+        ptr_left = "50%"
+
+    # 4) 信号按买/卖方向分组
+    sigs = tech.get("sig") or tech.get("signals") or []
+    detail_map = {d.get("name"): d for d in (tech.get("signal_detail") or []) if isinstance(d, dict)}
+    buys, sells = [], []
+    for s in sigs:
+        if isinstance(s, dict):
+            nm, typ, side = s.get("strategy", "?"), s.get("type", "?"), s.get("side", "")
+        elif isinstance(s, (list, tuple)) and len(s) >= 3:
+            nm, typ, side = s[0], s[1], s[2]
+        else:
+            continue
+        det = detail_map.get(nm, {})
+        reading = det.get("reading") or (s.get("reason") if isinstance(s, dict) else "")
+        side_cn = "左侧" if side == "LEFT" else ("右侧" if side == "RIGHT" else "")
+        if typ == "BUY":
+            buys.append((nm, side_cn, reading))
+        elif typ == "SELL":
+            sells.append((nm, side_cn, reading))
+    if buys or sells:
+        parts = [f'<div class="ts-h">量价信号（买入 {len(buys)} · 卖出 {len(sells)}）</div>']
+        for nm, sc, rd in buys:
+            parts.append(_sig_row("buy", "↑", nm, sc, rd))
+        for nm, sc, rd in sells:
+            parts.append(_sig_row("sell", "↓", nm, sc, rd))
+        sig_html = "".join(parts)
+    else:
+        sig_html = '<div class="ts-h">量价信号：暂无明显买卖信号触发</div>'
+    if sells and state == "右侧强趋势":
+        sig_html += ('<div class="ts-h" style="color:#eab308;margin-top:2px">'
+                     '提示：强趋势中的「左侧卖出」信号多属反指，不据此卖出；仅当跌破 MA20 才考虑减仓。</div>')
+
+    # 5) 择时建议
     adv = "；".join(esc(a) for a in tech.get("advice") or []) or "无特别建议"
 
-    vol_ratio = tech.get("vol_ratio")
-    drawdown = tech.get("drawdown")
-    pma20 = tech.get("price_vs_ma20")
+    border_c = {"b-buy": "var(--red)", "b-watch": "var(--yel)",
+                "b-wait": "var(--blue)", "b-no": "var(--mut)"}.get(vc, "var(--mut)")
 
-    def row(k, v):
-        return f'<div class="tr"><span>{k}</span><b>{esc(v)}</b></div>'
-
-    extra = ""
-    if vol_ratio is not None:
-        try:
-            vr = float(vol_ratio)
-            vrc = "#56d364" if vr < 0.8 else ("#ff7b72" if vr > 1.5 else "#e6edf3")
-            extra += f'<div class="tr"><span>量比</span><b style="color:{vrc}">{vr:.2f}</b></div>'
-        except (TypeError, ValueError):
-            pass
-    if drawdown is not None:
-        try:
-            dd = float(drawdown)
-            ddc = "#56d364" if dd <= 0 else ("#eab308" if dd < 20 else "#ff7b72")
-            extra += f'<div class="tr"><span>距 52w 高点回撤</span><b style="color:{ddc}">-{dd:.1f}%</b></div>'
-        except (TypeError, ValueError):
-            pass
-    if pma20 is not None:
-        try:
-            pm = float(pma20)
-            pmc = "#ff7b72" if pm > 0 else ("#56d364" if pm < 0 else "#e6edf3")
-            extra += f'<div class="tr"><span>现价 vs MA20</span><b style="color:{pmc}">{pm:+.1f}%</b></div>'
-        except (TypeError, ValueError):
-            pass
-
-    # 信号具体读数
-    detail = tech.get("signal_detail") or []
-    sd_html = ""
-    if detail:
-        sds = []
-        for d in detail:
-            if isinstance(d, dict):
-                sn = esc(d.get("name", "?"))
-                sr = esc(d.get("reading", ""))
-                sside = esc(d.get("side", ""))
-            else:
-                sn, sr, sside = "?", esc(d), ""
-            sds.append(f'<div class="sd"><span class="sn">{sn}</span>'
-                       f'<span class="sr">{sr}{(" · " + sside) if sside else ""}</span></div>')
-        sd_html = f'<div class="sig-detail">{"".join(sds)}</div>'
-
-    p52bar = sbar(pos52, col52(pos52), f"52w 分位 {pos52:.0f}%" if pos52 is not None else "52w 分位 —") \
-        if pos52 is not None else ""
-    tbar = sbar(pos20, col20, f"20日位置 {pos20:.0f}%" if pos20 is not None else "20日位置 —")
-    return (f'<div class="tech">'
-            f'<div class="tr"><span>趋势状态</span><b><span class="badge {STB.get(state, "b-drop")}">{esc(state)}</span></b></div>'
-            f'{p52bar}{tbar}'
-            f'<div class="tr"><span>均线</span><b>MA5 {esc(tech.get("ma5", "—"))} / MA20 {esc(tech.get("ma20", "—"))} / MA55 {esc(tech.get("ma55", "—"))}</b></div>'
-            f'{extra}'
-            f'<div class="tr"><span>风险分</span><b><span class="badge {RSKB.get(tech.get("risk_level", "—"), "b-drop")}">{esc(tech.get("risk_level", "—"))} {esc(tech.get("risk_score", "—"))}</span></b></div>'
-            f'<div class="tr"><span>信号（摘要）</span><b>{sigtxt}</b></div>'
-            f'{sd_html}'
-            f'<div class="adv">→ {adv}</div>'
-            f'<div class="aux-note">技术面仅作买入/加仓的择时辅助，不改变基本面结论；右侧不追高、破位减仓，仅供参考。</div></div>')
+    return (f'<div class="tech2">'
+            f'<div class="tverdict" style="border-left:4px solid {border_c}">'
+            f'<span class="tv-badge badge {vc}">{esc(verdict)}</span>'
+            f'<div class="tv-text">{esc(tv)}</div></div>'
+            f'<div class="tcols">'
+            f'<div class="tcol"><div class="tc-k">趋势方向</div>'
+            f'<div class="tc-v"><span class="badge {STB.get(state, "b-drop")}">{esc(state)}</span></div>'
+            f'<div class="tc-sub">{esc(trend_sub)}</div></div>'
+            f'<div class="tcol"><div class="tc-k">价格位置（52w分位）</div>'
+            f'<div class="tc-v">{pos_v} <small>{pos_class}</small></div>'
+            f'<div class="tc-sub">{esc(pos_sub)}</div></div>'
+            f'<div class="tcol"><div class="tc-k">追高风险</div>'
+            f'<div class="tc-v"><span class="badge {RSKB.get(risk_level, "b-drop")}">{esc(risk_level)} {esc(risk_score)}</span></div>'
+            f'<div class="tc-sub">{esc(risk_sub)}</div></div>'
+            f'</div>'
+            f'<div class="posaxis"><div class="pa-track">'
+            f'<span class="pa-z low">低位</span><span class="pa-z mid">中位</span><span class="pa-z high">高位</span>'
+            f'<i class="pa-ptr" style="left:{ptr_left}"></i></div>'
+            f'<div class="pa-cap">{pa_cap}</div></div>'
+            f'<div class="tsigs">{sig_html}</div>'
+            f'<div class="tadv">→ {adv}</div>'
+            f'<div class="aux-note">技术面仅作买入/加仓的择时辅助，不改变基本面结论；右侧不追高、破位减仓，仅供参考。</div>'
+            f'</div>')
 
 
 def build_verdict(v):
@@ -950,7 +1028,7 @@ def render_single(cfg):
            .replace("{{RETURNS}}", build_returns(s.get("returns")))
            .replace("{{VAL}}", build_val(s.get("valuation")))
            .replace("{{SAFETY}}", build_safety(s.get("safety", [])))
-           .replace("{{TECH}}", build_tech_single(s.get("tech"), pos52))
+           .replace("{{TECH}}", build_tech_single(s.get("tech"), pos52, fv=(s.get("verdict") or {}).get("action", "观望")))
            .replace("{{VERDICT}}", build_verdict(s.get("verdict")))
            .replace("{{RISKS}}", build_risks(s.get("risks", [])))
            .replace("{{QUOTE}}", f'<div class="sec-t">九、守拙金句</div><div class="quote">「{esc(quote)}」</div>' if quote else "")
