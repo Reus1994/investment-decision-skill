@@ -76,11 +76,28 @@
 
   /* 业务结构 */
   .segs{margin-top:4px}
-  .seg{display:grid;grid-template-columns:130px 1fr 90px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
-  .seg .sn{font-weight:600}
-  .seg .sbar{height:14px;background:#0d1117;border:1px solid var(--line);border-radius:5px;overflow:hidden}
-  .seg .sbar i{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#79b8ff);border-radius:4px}
-  .seg .sp{text-align:right;color:var(--mut);font-variant-numeric:tabular-nums}
+  .seg-ov{font-size:13px;color:#c9d1d9;padding:2px 0 10px}
+  .seg-ov b{color:#e6edf3;font-weight:700}
+  .seg-stack{display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid var(--line);margin-bottom:8px}
+  .seg-stack .stk-seg{height:100%}
+  .stk-legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:12px;color:var(--mut);margin-bottom:12px}
+  .stk-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .segtab{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  .segtab th{text-align:left;color:var(--mut);font-weight:600;padding:7px 10px;border-bottom:1px solid var(--line);font-size:12px}
+  .segtab td{padding:8px 10px;border-bottom:1px dashed var(--line)}
+  .segtab .seg-nm{font-weight:600;color:#e6edf3}
+  .segtab .seg-note{color:var(--mut);font-size:12px;max-width:240px}
+  .segtab .up{color:var(--up)}
+  .segtab .dn{color:var(--dn)}
+  .segtab .neu{color:var(--mut)}
+
+  /* 财务数据 Tabs */
+  .tabbar{display:flex;gap:6px;margin-bottom:12px}
+  .tab{background:#11161f;border:1px solid var(--line);color:var(--mut);padding:6px 16px;border-radius:7px;
+       font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+  .tab:hover{color:#c9d1d9;border-color:#30363d}
+  .tab.on{background:#1f6feb22;color:#79b8ff;border-color:#1f6feb}
+  .tabpanel{}
   .seg .sp b{color:#e6edf3}
 
   /* 多年财务表（核心具体块） */
@@ -199,8 +216,15 @@
   <div class="card">{{SEGS}}</div>
 
   <div class="sec-t fund">四、近 N 年核心财务数据（真实报表口径）</div>
-  <div class="sec-sub">— 看趋势与质量：营收/利润是否持续增长、现金流是否跟得上利润、ROIC 是否够高</div>
-  <div class="card" style="padding:6px 14px;overflow-x:auto">{{FINYEARS}}</div>
+  <div class="sec-sub">— 看趋势与质量：营收/利润是否持续增长、现金流是否跟得上利润、ROIC 是否够高。支持按「年度 / 季度」切换查看</div>
+  <div class="card" style="padding:6px 14px;overflow-x:auto">
+    <div class="tabbar">
+      <button class="tab on" onclick="switchFin('y')">年度</button>
+      <button class="tab{{HAS_Q}}" onclick="switchFin('q')">季度</button>
+    </div>
+    <div class="tabpanel" id="finY">{{FINYEARS}}</div>
+    <div class="tabpanel" id="finQ" style="display:none">{{FINQ}}</div>
+  </div>
 
   <div class="sec-t fund">五、财务质量体检（守拙剑客门槛 + 淘汰项）</div>
   <div class="sec-sub">— 基于上方真实数据做的达标判定</div>
@@ -237,5 +261,13 @@
 
   <div class="foot">{{FOOTER}}</div>
 </div>
+<script>
+function switchFin(t){
+  var y=document.getElementById('finY'), q=document.getElementById('finQ');
+  var b=document.querySelectorAll('.tabbar .tab');
+  if(t==='y'){y.style.display='block';q.style.display='none';b[0].classList.add('on');b[1].classList.remove('on');}
+  else if(q){y.style.display='none';q.style.display='block';b[0].classList.remove('on');b[1].classList.add('on');}
+}
+</script>
 </body>
 </html>

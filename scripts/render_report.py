@@ -98,11 +98,19 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
       "mgmt_tags":["专注主业","资本配置理性","诚信透明"],
       "demand":"长期需求：社交/娱乐/数字化营销5-10年后仍在，AI赋能广告与游戏生产"
     },
-    "segments":[                          # 业务结构（收入构成，必须给占比/金额）
-      {"seg":"游戏","pct":"30%","rev":"1960亿"},
-      {"seg":"社交网络","pct":"20%","rev":"1300亿"},
-      {"seg":"广告","pct":"18%","rev":"1170亿"},
-      {"seg":"金融科技及企业服务","pct":"32%","rev":"2080亿"}
+    "seg_total":"8323亿",                  # 总营收（可选，用于业务结构概览行）
+    "segments":[                          # 业务结构（收入构成，必须给占比/金额；yoy/gm/note 可选）
+      {"seg":"游戏","pct":"24%","rev":"1960亿","yoy":"+11%","gm":"55%","note":"国内+海外，长青IP"},
+      {"seg":"社交网络","pct":"16%","rev":"1300亿","yoy":"+6%","gm":"50%","note":"微信增值+音乐"},
+      {"seg":"广告","pct":"14%","rev":"1170亿","yoy":"+17%","gm":"52%","note":"视频号拉动"},
+      {"seg":"金融科技及企业服务","pct":"46%","rev":"2080亿","yoy":"+4%","gm":"40%","note":"支付+云"}
+    ],
+    "fin_quarters":[                      # 近N季核心财务数据（可选；与 fin_years 同结构，yr 用 "2026Q1" 等）
+      {"yr":"2026Q1","rev":"1800亿","rev_yoy":"+13%","np":"478亿","np_yoy":"+22%",
+       "ocf":"600亿","fcf":"430亿","gm":"54%","nm":"27%","roe":"6%","roic":"5%",
+       "note":"单位：人民币；单季"},
+      {"yr":"2025Q4","rev":"1900亿","rev_yoy":"+11%","np":"510亿","np_yoy":"+18%",
+       "ocf":"700亿","fcf":"520亿","gm":"53%","nm":"27%","roe":"6%","roic":"5%"}
     ],
     "fin_years":[                         # 近N年核心财务数据（真实报表口径，最新在前）
       {"yr":"2025","rev":"7240亿","rev_yoy":"+9%","np":"1940亿","np_yoy":"+12%",
@@ -548,25 +556,84 @@ def build_evid(items):
     return f'<ul class="evid">{"".join(lis)}</ul>' if lis else ""
 
 
-def build_segments(segs):
-    """业务结构：分部占比 + 收入。"""
+SEG_PALETTE = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444",
+                "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"]
+
+
+def build_segments(segs, total=None):
+    """业务结构：总量概览 + 100% 堆叠条 + 多维明细表。
+
+    segs: [{seg, pct, rev, yoy?, gm?, note?}, ...]  pct 可为 "24%" 或 24 或 None
+    total: 总营收字符串（如 "8323亿"），用于概览行
+    """
     if not segs:
         return '<div class="qb" style="color:var(--mut)">（未提供业务分部数据）</div>'
-    rows = []
+
+    # —— 解析占比，用于堆叠条比例 ——
+    parsed = []
     for sg in segs:
-        name = esc(sg.get("seg", "—"))
         pct = sg.get("pct")
         try:
-            p = float(pct)
+            p = float(str(pct).replace("%", "").strip())
         except (TypeError, ValueError):
-            p = None
-        bar = (f'<div class="sbar"><i style="width:{max(0.0, min(100.0, p))}%"></i></div>'
-               if p is not None else '<div class="sbar"></div>')
-        rev = esc(sg.get("rev", "—"))
-        pct_s = esc(pct) if pct is not None else "—"
-        rows.append(f'<div class="seg"><div class="sn">{name}</div>{bar}'
-                    f'<div class="sp"><b>{pct_s}</b> · {rev}</div></div>')
-    return f'<div class="segs">{"".join(rows)}</div>'
+            p = 0.0
+        parsed.append((sg, p))
+    ssum = sum(p for _, p in parsed) or 1.0  # 归一化基准
+
+    # —— 概览行：总量 + 前两大分部集中度 ——
+    parsed_sorted = sorted(parsed, key=lambda x: x[1], reverse=True)
+    top2 = sum(p for _, p in parsed_sorted[:2])
+    ov = []
+    if total:
+        ov.append(f'总营收 <b>{esc(total)}</b>')
+    ov.append(f'分部数 <b>{len(segs)}</b>')
+    ov.append(f'前两大分部合计占比 <b>{top2:.0f}%</b>')
+    ov_html = f'<div class="seg-ov">{" · ".join(ov)}</div>'
+
+    # —— 100% 堆叠条 ——
+    stack_items = []
+    for i, (sg, p) in enumerate(parsed):
+        w = (p / ssum) * 100 if ssum else 0
+        col = SEG_PALETTE[i % len(SEG_PALETTE)]
+        nm = esc(sg.get("seg", "—"))
+        stack_items.append(
+            f'<span class="stk-seg" style="width:{w:.2f}%;background:{col}" '
+            f'title="{nm} {p:.1f}%"></span>')
+    legend = "".join(
+        f'<span class="stk-lg"><i style="background:{SEG_PALETTE[i % len(SEG_PALETTE)]}"></i>'
+        f'{esc(sg.get("seg", "—"))}</span>'
+        for i, (sg, _) in enumerate(parsed))
+    stack_html = (f'<div class="seg-stack">{"".join(stack_items)}</div>'
+                  f'<div class="stk-legend">{legend}</div>')
+
+    # —— 多维明细表 ——
+    head_cells = ['<th>业务分部</th>', '<th>收入</th>', '<th>占比</th>']
+    has_yoy = any(sg.get("yoy") is not None for sg, _ in parsed)
+    has_gm = any(sg.get("gm") is not None for sg, _ in parsed)
+    if has_yoy:
+        head_cells.append('<th>同比</th>')
+    if has_gm:
+        head_cells.append('<th>毛利率</th>')
+    head_cells.append('<th>说明</th>')
+    head = '<tr>' + "".join(head_cells) + '</tr>'
+
+    body_rows = []
+    for sg, p in parsed:
+        tds = [f'<td class="seg-nm">{esc(sg.get("seg", "—"))}</td>',
+               f'<td>{esc(sg.get("rev", "—"))}</td>',
+               f'<td><b>{esc(sg.get("pct", "—"))}</b></td>']
+        if has_yoy:
+            yv = sg.get("yoy")
+            yc = "up" if str(yv).startswith("+") else ("dn" if str(yv).startswith("-") else "neu")
+            tds.append(f'<td class="{yc}">{esc(yv) if yv is not None else "—"}</td>')
+        if has_gm:
+            tds.append(f'<td>{esc(sg.get("gm")) if sg.get("gm") is not None else "—"}</td>')
+        tds.append(f'<td class="seg-note">{esc(sg.get("note", "—"))}</td>')
+        body_rows.append(f'<tr>{"".join(tds)}</tr>')
+    table = (f'<table class="segtab"><thead>{head}</thead>'
+             f'<tbody>{"".join(body_rows)}</tbody></table>')
+
+    return f'<div class="segs">{ov_html}{stack_html}{table}</div>'
 
 
 FIN_METRICS = [
@@ -578,12 +645,12 @@ FIN_METRICS = [
 ]
 
 
-def build_fin_years(rows):
-    """近 N 年核心财务数据表（指标 × 年份），真实报表口径。"""
+def build_fin_table(rows, caption_label=None):
+    """核心财务数据表（指标 × 期次），真实报表口径。rows 最新在前。"""
     if not rows:
-        return '<div class="qb" style="color:var(--mut)">（未提供多年财务数据）</div>'
-    years = [esc(r.get("yr", "?")) for r in rows]
-    head = '<tr><th>指标</th>' + "".join(f'<th>{y}</th>' for y in years) + '</tr>'
+        return '<div class="qb" style="color:var(--mut)">（未提供财务数据）</div>'
+    periods = [esc(r.get("yr", "?")) for r in rows]
+    head = '<tr><th>指标</th>' + "".join(f'<th>{p}</th>' for p in periods) + '</tr>'
     body = []
     for key, lab, is_yoy in FIN_METRICS:
         tds = []
@@ -600,10 +667,14 @@ def build_fin_years(rows):
                 elif s.startswith("-"):
                     cell_cls = "dn"
             tds.append(f'<td class="{cell_cls}">{esc(val)}</td>')
-        body.append(f'<tr><td>{lab}</td>{"".join(tds)}</td>')
+        body.append(f'<tr><td>{lab}</td>{"".join(tds)}</tr>')
     note = esc(rows[0].get("note", "")) if rows else ""
-    cap = f'<caption>{note}</caption>' if note else ""
+    cap = f'<caption>{caption_label + " · " if caption_label else ""}{note}</caption>' if (caption_label or note) else ""
     return (f'<table class="fintab"><thead>{head}</thead><tbody>{"".join(body)}</tbody>{cap}</table>')
+
+
+def build_fin_years(rows):
+    return build_fin_table(rows)
 
 
 def build_qual(q):
@@ -870,8 +941,10 @@ def render_single(cfg):
            .replace("{{SUMMARY}}", esc(summary))
            .replace("{{PROFILE}}", build_profile(prof, pos52))
            .replace("{{QUAL}}", build_qual(s.get("qualitative", {})))
-           .replace("{{SEGS}}", build_segments(s.get("segments")))
+           .replace("{{SEGS}}", build_segments(s.get("segments"), s.get("seg_total")))
            .replace("{{FINYEARS}}", build_fin_years(s.get("fin_years")))
+           .replace("{{FINQ}}", build_fin_table(s.get("fin_quarters"), "季度"))
+           .replace("{{HAS_Q}}", "" if s.get("fin_quarters") else ' style="display:none"')
            .replace("{{FIN}}", build_fin(s.get("financials", [])))
            .replace("{{CAPITAL}}", build_capital(s.get("capital")))
            .replace("{{RETURNS}}", build_returns(s.get("returns")))
