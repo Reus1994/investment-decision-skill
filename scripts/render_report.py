@@ -27,14 +27,14 @@ input.json 结构:
   "items": [
     {
       "code":"hk00700", "name":"腾讯控股",
-      "cls":"进攻",                  # 进攻/防守/替补/放弃 (守拙剑客分类); 缺省 "—"
+      "cls":"进攻",                  # 进攻/防守/替补/放弃 (守拙君分类); 缺省 "—"
       "px":620.5, "cur":"HKD",
       "pe":"22.1","pb":"4.2","div":"0.9%","roe":"23%","g":"12%","peg":"1.8",
       "hi52":700, "lo52":380,        # 给 hi52/lo52 自动算分位; 或直接给 "pos52": 88
       "valst":"合理",                # 估值状态: 低估/合理/高估
       "fv":"买入",                   # 基本面判定: 买入/观望/放弃/观望·放弃
       "blurb":"五步法结论文案…",      # 卡片正文
-      "quote":"「胜于易胜者」",        # 守拙金句
+      "quote":"「胜于易胜者」",        # 守拙君金句
       "tech":{                       # 技术面; 也可用 --tech 外部文件按 code 注入
         "state":"右侧强趋势",         # 右侧强趋势/中性/走弱; 缺省由 ma5/ma20 推断
         "pos20":0.85,                # 0~1 或 0~100 均可
@@ -62,14 +62,14 @@ tech.json（可选，technical_engine 批量输出）: { "hk00700": {…同上 t
 {
   "scope":"腾讯控股", "kind":"个股深度", "date":"2026-08-08",
   "title":"腾讯控股 · 个股深度分析",
-  "subtitle":"数据截至 … | 框架：守拙剑客五步法 + 李录审美",
+  "subtitle":"数据截至 … | 框架：守拙君五步法 + 李录审美",
   "single":{
     "summary":"一句话定位：…",
     "profile":{
       "industry":"互联网/社交游戏", "mktcap":"3.2万亿 HKD",
       "px":520.5, "cur":"HKD", "pe":"22", "pb":"4.2", "roe":"23%", "g":"12%", "peg":"1.8",
       "hi52":620, "lo52":360,            # 自动算 52w 分位
-      "cls":"进攻",                       # 守拙剑客分类
+      "cls":"进攻",                       # 守拙君分类
       # —— 以下为「公司画像」丰富字段（可缺省，缺省则折叠，不报错）——
       "desc":"以微信/QQ 社交底座为核心的平台型互联网公司，业务横跨游戏、广告、金融科技与企业服务。",
       "listing":"港交所主板 2004-06 上市", "founded":"1998", "hq":"中国深圳",
@@ -1068,7 +1068,7 @@ def render_single(cfg):
            .replace("{{TECH}}", build_tech_single(s.get("tech"), pos52, s.get("verdict")))
            .replace("{{VERDICT}}", build_verdict(s.get("verdict")))
            .replace("{{RISKS}}", build_risks(s.get("risks", [])))
-           .replace("{{QUOTE}}", f'<div class="sec-t">九、守拙金句</div><div class="quote">「{esc(quote)}」</div>' if quote else "")
+           .replace("{{QUOTE}}", f'<div class="sec-t">九、守拙君金句</div><div class="quote">「{esc(quote)}」</div>' if quote else "")
            .replace("{{FOOTER}}", cfg.get("footer", "本报告为框架化研究，非投资建议。")))
     return out
 
